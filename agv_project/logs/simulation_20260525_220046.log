@@ -1,0 +1,5 @@
+[2026-05-25 22:00:46,599] INFO - config.py:254 - 日志文件已创建: logs\simulation_20260525_220046.log
+[2026-05-25 22:00:46,599] INFO - agv_controller.py:207 - 控制器已重置
+[2026-05-25 22:00:46,602] INFO - agv_controller.py:567 - AGV 0: 已取货，前往送货点 (24, 4)
+[2026-05-25 22:00:46,603] INFO - agv_controller.py:567 - AGV 1: 已取货，前往送货点 (24, 12)
+[2026-05-25 22:00:46,607] INFO - agv_controller.py:567 - AGV 2: 已取货，前往送货点 (24, 20)
