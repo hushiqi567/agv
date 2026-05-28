@@ -193,8 +193,7 @@ class Simulation:
                 f"步数 {self.current_step}: "
                 f"已完成 {stats['tasks_completed']} 个任务, "
                 f"AGV: 空闲{stats['agvs']['idle']} "
-                f"移动中{stats['agvs']['moving']} "
-                f"装卸{stats['agvs']['loading']}"
+                f"移动中{stats['agvs']['moving']}"
             )
     
     def _handle_events(self) -> bool:

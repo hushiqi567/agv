@@ -402,7 +402,7 @@ class WarehouseRenderer:
             stats = self.agv_controller.get_statistics()
             idle_count = stats['agvs']['idle']
             moving_count = stats['agvs']['moving']
-            loading_count = stats['agvs']['loading']
+            loading_count = stats['agvs'].get('loading', 0)
             tasks_completed = stats['tasks_completed']
         
         # 步数信息

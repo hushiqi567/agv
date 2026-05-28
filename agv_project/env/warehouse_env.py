@@ -194,20 +194,21 @@ class WarehouseEnv(BaseModule):
     def step(self):
         """
         执行一步环境更新
-        
+
         流程：
         1. 步数递增
-        2. 所有障碍物随机移动一格（避开进货口、出货口和其他障碍物）
+        2. 障碍物每3步随机移动一格（避开进货口、出货口和其他障碍物）
         3. 发布状态更新
         """
         self.current_step += 1
-        
-        # 所有障碍物随机移动一格
-        self._move_obstacles()
-        
+
+        # 障碍物每3步移动一次，降低对AGV的干扰
+        if self.current_step % 3 == 0:
+            self._move_obstacles()
+
         # 发布状态更新
         self._publish_state()
-        
+
         return self._get_observation()
     
     def _move_obstacles(self):

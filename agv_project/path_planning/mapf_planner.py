@@ -184,13 +184,7 @@ def a_star_search(
             # 障碍物检查（等待动作不受障碍物限制）
             if (dx, dy) != (0, 0) and grid[ny][nx] == 1:
                 continue
-            
-            # 装货口/卸货口检查：AGV不能经过（除非是起点或终点）
-            if (dx, dy) != (0, 0) and grid[ny][nx] in (CellType.LOADING_ZONE.value, CellType.UNLOADING_ZONE.value):
-                # 允许起点和终点在装货口/卸货口
-                if (nx, ny) != start and (nx, ny) != goal:
-                    continue
-            
+
             # 静态占用检查
             if (dx, dy) != (0, 0) and (nx, ny) in occupied_positions:
                 continue
