@@ -385,13 +385,11 @@ class AGVController(BaseModule):
         """RL 策略网络决策移动方向，以 MAPF 路径路标为子目标"""
         other_agvs = [pos for aid, pos in all_positions.items() if aid != agv.agv_id]
 
-        # 确定子目标
+        # 确定子目标：优先用5步前瞻（更远的目标让RL有更好的方向感）
         sub_goal = agv.goal_pos
         if agv.path and agv.path_index < len(agv.path) - 1:
             lookahead = min(5, len(agv.path) - agv.path_index - 1)
             sub_goal = agv.path[agv.path_index + lookahead]
-            if agv.path_index + 1 < len(agv.path):
-                sub_goal = agv.path[agv.path_index + 1]
 
         dist_to_subgoal = abs(agv.position[0]-sub_goal[0]) + abs(agv.position[1]-sub_goal[1])
         use_direct = dist_to_subgoal > 12

@@ -317,9 +317,11 @@ class TaskAllocator(BaseModule):
                         "distance": best_score
                     })
                     
+                    dist = manhattan_distance(
+                        self.agvs[best_agv_id].position, task.pickup_pos)
                     self.logger.info(
                         f"分配任务 {task.task_id} → AGV {best_agv_id} "
-                        f"(score {best_score})"
+                        f"(距离 {dist})"
                     )
         
         return assigned_tasks
