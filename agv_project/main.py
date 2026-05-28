@@ -92,8 +92,8 @@ class Simulation:
         self.controller.set_task_allocator(self.task_allocator)
         self.controller.reset()
         
-        # 5. 设置控制器模式（RL主导 vs CBS主导）
-        self.controller.use_rl_primary = True  # 默认RL主导
+        # 5. 设置控制器模式
+        self.controller.use_rl_primary = True
 
         # 6. 创建渲染器
         if self.render_enabled:
@@ -296,6 +296,8 @@ def main():
     parser.add_argument("--experiment", type=str, default=None,
                         choices=["1", "2", "3", "4"],
                         help="运行指定实验 (1-4)")
+    parser.add_argument("--ppo", action="store_true", help="使用PPO算法替代DQN")
+    parser.add_argument("--marl", action="store_true", help="启用MARL多智能体训练模式")
     args = parser.parse_args()
     
     # 从全局配置读取日志级别

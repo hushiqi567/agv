@@ -228,22 +228,23 @@ class TaskAllocator(BaseModule):
         for _ in range(num_new_tasks):
             # 随机选一个进货口作为取货点
             pickup_pos = self.rng.choice(self.loading_zones)
-            
+
             # 获取空闲出货口
             available_unloading = self.od_flow.get_available_unloading_zones()
-            
+
             if not available_unloading:
                 self.logger.debug("没有空闲出货口，跳过生成")
                 continue
-            
+
             # 从空闲出货口中等概率随机选一个
             delivery_pos = self.rng.choice(available_unloading)
-            
-            # 创建任务
+
+            # 创建任务（含随机优先级1-5）
             task = self.od_flow.create_task(pickup_pos, delivery_pos)
-            
+
             if task:
                 task.create_time = self.current_step
+                task.priority = self.rng.randint(1, 5)  # 随机优先级
                 self.logger.info(
                     f"生成任务 {task.task_id}: "
                     f"取货 {pickup_pos} → 送货 {delivery_pos}"
@@ -268,6 +269,9 @@ class TaskAllocator(BaseModule):
 
         if not pending_tasks:
             return assigned_tasks
+
+        # 高优先级任务先分配
+        pending_tasks.sort(key=lambda t: t.priority, reverse=True)
 
         idle_agvs = {
             agv_id: agv for agv_id, agv in self.agvs.items()

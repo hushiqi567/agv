@@ -4,6 +4,7 @@ import logging
 from typing import List, Tuple, Dict
 from dataclasses import dataclass
 
+from path_planning.rl.ppo_agent import PPOAgent
 from path_planning.rl.dqn_agent import DQNAgent, ACTIONS, ACTION_DELTAS
 
 
@@ -30,7 +31,7 @@ STAGES = [
 class CurriculumTrainer:
     """课程学习训练器 — 管理三阶段渐进训练"""
 
-    def __init__(self, agent: DQNAgent, stages=None):
+    def __init__(self, agent, stages=None):
         self.agent = agent
         self.stages = stages or STAGES
         self.current_stage_idx = 0

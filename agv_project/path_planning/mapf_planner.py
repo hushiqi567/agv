@@ -256,7 +256,7 @@ class MAPFPlanner:
         self.grid = grid
         self.width = width
         self.height = height
-        self.max_iterations = 100  # CBS最大迭代次数
+        self.max_iterations = 500  # CBS最大迭代次数（从100提升，8AGV在50×50上需更多迭代）
         self.logger.info(f"MAPF规划器初始化完成: {width}x{height}")
     
     def update_grid(self, grid: List[List[int]]):
