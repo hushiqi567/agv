@@ -75,7 +75,7 @@ class AGVConfig:
         load_capacity: 最大载重，默认10.0
         sensor_range: 传感器探测范围（格），默认3
     """
-    num_agvs: int = 4
+    num_agvs: int = 8
     max_speed: float = 1.0
     battery_capacity: float = 100.0
     battery_consumption_per_step: float = 0.5
@@ -250,18 +250,14 @@ class ConfigManager:
             ConfigManager._initialized = True
     
     def _setup_logging(self):
-        """
-        设置日志系统
-        
-        根据配置初始化日志记录器，支持控制台输出和文件输出。
-        """
-        log_level = getattr(logging, self.simulation.log_level.upper(), logging.INFO)
-        
-        # 创建日志记录器
+        """设置日志系统。仅在根logger未配置时初始化，避免与main.py重复。"""
         self.logger = logging.getLogger("AGVProject")
+        if self.logger.handlers:
+            return  # 已由main.py配置，跳过
+
+        log_level = getattr(logging, self.simulation.log_level.upper(), logging.INFO)
         self.logger.setLevel(log_level)
-        
-        # 控制台处理器
+
         console_handler = logging.StreamHandler()
         console_handler.setLevel(log_level)
         console_format = logging.Formatter(
@@ -270,14 +266,13 @@ class ConfigManager:
         )
         console_handler.setFormatter(console_format)
         self.logger.addHandler(console_handler)
-        
-        # 文件处理器（可选）
+
         if self.simulation.save_log:
             log_dir = self.simulation.log_dir
             os.makedirs(log_dir, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             log_file = os.path.join(log_dir, f"simulation_{timestamp}.log")
-            
+
             file_handler = logging.FileHandler(log_file, encoding='utf-8')
             file_handler.setLevel(log_level)
             file_format = logging.Formatter(
@@ -285,8 +280,6 @@ class ConfigManager:
             )
             file_handler.setFormatter(file_format)
             self.logger.addHandler(file_handler)
-            
-            self.logger.info(f"日志文件已创建: {log_file}")
     
     def to_dict(self) -> Dict[str, Any]:
         """

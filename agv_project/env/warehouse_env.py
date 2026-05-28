@@ -43,8 +43,8 @@ CELL_UNLOADING = CellType.UNLOADING_ZONE.value # 3 - 出货口
 
 # 颜色定义（RGB）
 COLOR_EMPTY = (240, 240, 240)       # 浅灰 - 空地
-COLOR_LOADING = (220, 80, 80)       # 红色 - 出货口（仓库出货，AGV来取货）
-COLOR_UNLOADING = (70, 130, 180)    # 蓝色 - 卸货口（AGV送货到此卸货）
+COLOR_LOADING = (220, 80, 80)       # 红色 - 装货口（AGV在此取货）
+COLOR_UNLOADING = (70, 130, 180)    # 蓝色 - 卸货口（AGV在此送货）
 COLOR_OBSTACLE = (30, 30, 30)       # 黑色 - 障碍物
 COLOR_GRID_LINE = (200, 200, 200)   # 灰色 - 网格线
 COLOR_BACKGROUND = (255, 255, 255)  # 白色 - 背景

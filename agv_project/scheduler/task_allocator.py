@@ -37,21 +37,17 @@ from scheduler.od_flow import ODFlowManager
 # 常量定义
 # ==========================================
 
-# 泊松分布参数（平均每步到达的货物数量）
 # 从全局配置读取
 _config = get_config()
 POISSON_LAMBDA = _config.simulation.poisson_lambda
+NUM_AGVS = _config.agv.num_agvs
 
-# AGV数量
-NUM_AGVS = 8
-
-# AGV初始位置（左上侧4台，右上侧4台）
-AGV_INITIAL_POSITIONS = [
-    # 左上侧区域 (x=1~5, y=1~10)
+# AGV初始位置（从配置读取，兼容硬编码fallback）
+_default_positions = [
     (2, 2), (2, 5), (2, 8), (5, 3),
-    # 右上侧区域 (x=44~48, y=1~10)
     (47, 2), (47, 5), (47, 8), (44, 3),
 ]
+AGV_INITIAL_POSITIONS = getattr(_config.agv, 'initial_positions', None) or _default_positions
 
 
 class TaskAllocator(BaseModule):
@@ -92,10 +88,6 @@ class TaskAllocator(BaseModule):
         # AGV控制器引用（由外部设置）
         self.controller = None
         
-        # AGV状态管理
-        self.agvs: Dict[int, AGVState] = {}
-        self._init_agvs()
-        
         # 泊松分布参数
         self.poisson_lambda = POISSON_LAMBDA
         
@@ -113,16 +105,13 @@ class TaskAllocator(BaseModule):
             f"{len(unloading_zones)}个出货口, "
             f"{NUM_AGVS}台AGV"
         )
-    
-    def _init_agvs(self):
-        """初始化AGV"""
-        for i in range(NUM_AGVS):
-            pos = AGV_INITIAL_POSITIONS[i]
-            self.agvs[i] = AGVState(
-                agv_id=i,
-                position=pos,
-                status=AGVStatus.IDLE
-            )
+
+    @property
+    def agvs(self):
+        """AGV状态从控制器读取（单一数据源）"""
+        if self.controller and hasattr(self.controller, 'agvs'):
+            return self.controller.agvs
+        return {}
     
     def _setup_subscriptions(self):
         """设置消息订阅"""
@@ -158,7 +147,8 @@ class TaskAllocator(BaseModule):
         
         if agv_id is not None and agv_id in self.agvs:
             self.agvs[agv_id].status = AGVStatus.IDLE
-            self.agvs[agv_id].current_task = None
+            if hasattr(self.agvs[agv_id], 'current_task'):
+                self.agvs[agv_id].current_task = None
     
     def _on_simulation_start(self, message: Message):
         """处理仿真开始消息"""
@@ -179,7 +169,6 @@ class TaskAllocator(BaseModule):
         """重置任务分配器"""
         self.current_step = 0
         self.od_flow.reset()
-        self._init_agvs()
         self.logger.info("调度模块已重置")
     
     def step(self):

@@ -16,7 +16,6 @@ AGV仓库仿真系统 - 主入口
 import sys
 import os
 import logging
-import pygame
 from typing import Optional
 
 # 将项目根目录添加到系统路径
@@ -28,7 +27,6 @@ from interface.communication import MessageBus, MessageType, Message, BaseModule
 from interface.config import get_config
 from interface.data_types import TaskStatus
 from env.warehouse_env import WarehouseEnv, MAP_WIDTH, MAP_HEIGHT
-from env.renderer import WarehouseRenderer, FPS
 from scheduler.od_flow import ODFlowManager
 from scheduler.task_allocator import TaskAllocator
 from path_planning.mapf_planner import MAPFPlanner
@@ -95,8 +93,9 @@ class Simulation:
         # 5. 设置控制器模式
         self.controller.use_rl_primary = True
 
-        # 6. 创建渲染器
+        # 6. 创建渲染器（懒加载pygame）
         if self.render_enabled:
+            from env.renderer import WarehouseRenderer
             self.renderer = WarehouseRenderer(self.env, fps=self.render_fps)
             self.renderer.set_agv_controller(self.controller)
         
@@ -199,12 +198,8 @@ class Simulation:
             )
     
     def _handle_events(self) -> bool:
-        """
-        处理用户输入事件
-        
-        Returns:
-            是否继续运行
-        """
+        """处理用户输入事件"""
+        import pygame
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
@@ -381,7 +376,6 @@ def main():
         print("\n训练完成！")
 
     elif args.experiment:
-        # ===== 实验模式 =====
         print(f"\n运行实验 {args.experiment}...")
         if args.experiment == "1":
             from experiments.run_experiment_1_single import run_experiment_1
@@ -395,6 +389,27 @@ def main():
         elif args.experiment == "4":
             from experiments.run_experiment_4_comparison import run_experiment_4
             run_experiment_4(steps=args.steps or 200)
+
+    elif args.marl:
+        # ===== MARL 多智能体训练模式 =====
+        print("\n启动MARL多智能体训练模式...")
+        from path_planning.rl.dqn_agent import DQNAgent
+        from path_planning.rl.marl_trainer import MARLTrainer
+
+        sim = Simulation(render=False)
+        agent = DQNAgent(grid_size=15)
+        if args.load_model:
+            agent.load_model(args.load_model)
+        marl = MARLTrainer(agent, num_agvs=config.agv.num_agvs)
+
+        for ep in range(1, args.train_episodes + 1):
+            result = marl.train_episode(sim.env, sim.task_allocator, max_steps=args.steps or 500)
+            print(f"  Episode {ep}: tasks={result['tasks_completed']} "
+                  f"collisions={result['collisions']} reward={result['avg_reward']:.2f}")
+
+        if args.save_model:
+            agent.save_model(args.save_model)
+        print("\nMARL训练完成！")
 
     else:
         # ===== 普通仿真模式 =====

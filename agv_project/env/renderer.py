@@ -438,8 +438,8 @@ class WarehouseRenderer:
         
         # 图例
         legend_items = [
-            ("出货口", COLOR_LOADING),    # 红色 - 仓库出货，AGV来取货
-            ("卸货口", COLOR_UNLOADING),  # 蓝色 - AGV送货到此卸货
+            ("装货口", COLOR_LOADING),    # 红色 - AGV取货点
+            ("卸货口", COLOR_UNLOADING),  # 蓝色 - AGV送货点
             ("障碍物", COLOR_OBSTACLE),
             ("AGV", AGV_COLORS[0]),
         ]
