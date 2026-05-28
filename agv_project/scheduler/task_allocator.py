@@ -259,69 +259,67 @@ class TaskAllocator(BaseModule):
     
     def _assign_pending_tasks(self) -> List[Dict]:
         """
-        分配待分配任务给空闲AGV（最近距离优先）
-        
-        遍历所有待分配任务，对每个任务：
-        1. 找出所有空闲AGV
-        2. 计算每个空闲AGV到取货点的曼哈顿距离
-        3. 选择距离最近的AGV分配
-        
-        Returns:
-            本次分配的任务列表 [{task_id, agv_id, pickup_pos, delivery_pos}]
+        分配待分配任务给空闲AGV（考虑负载均衡）
+
+        避免多个AGV同时涌向同一取货口区域。
         """
         pending_tasks = self.od_flow.get_pending_tasks()
         assigned_tasks = []
-        
+
         if not pending_tasks:
             return assigned_tasks
-        
-        # 获取空闲AGV列表
+
         idle_agvs = {
             agv_id: agv for agv_id, agv in self.agvs.items()
             if agv.status == AGVStatus.IDLE
         }
-        
+
         if not idle_agvs:
-            self.logger.debug("没有空闲AGV，等待中...")
             return assigned_tasks
-        
-        # 对每个待分配任务，找最近的空闲AGV
+
+        # 统计正在前往的取货口
+        active_pickups = {}
+        for agv_id, agv in self.agvs.items():
+            if agv.current_task and agv.status in [AGVStatus.MOVING, AGVStatus.MOVING_TO_PICKUP]:
+                pk = agv.current_task.pickup_pos
+                active_pickups[pk] = active_pickups.get(pk, 0) + 1
+
         for task in pending_tasks:
             if not idle_agvs:
-                break  # 没有更多空闲AGV了
-            
-            # 计算每个空闲AGV到取货点的距离
+                break
+
             best_agv_id = None
-            best_distance = float('inf')
-            
+            best_score = float('inf')
+
             for agv_id, agv in idle_agvs.items():
                 dist = manhattan_distance(agv.position, task.pickup_pos)
-                if dist < best_distance:
-                    best_distance = dist
+                # 如果AGV就在取货口旁边（距离<5），直接分配，不受拥挤惩罚影响
+                congestion_penalty = 0 if dist < 5 else active_pickups.get(task.pickup_pos, 0) * 5
+                score = dist + congestion_penalty
+                if score < best_score:
+                    best_score = score
                     best_agv_id = agv_id
-            
+
             if best_agv_id is not None:
-                # 分配任务
                 if self.od_flow.assign_task(task.task_id, best_agv_id):
-                    # 更新AGV状态
                     agv = idle_agvs[best_agv_id]
                     agv.status = AGVStatus.MOVING
                     agv.current_task = task
-                    
-                    # 从空闲列表中移除
+                    active_pickups[task.pickup_pos] = active_pickups.get(task.pickup_pos, 0) + 1
+
                     del idle_agvs[best_agv_id]
-                    
+
                     assigned_tasks.append({
                         "task_id": task.task_id,
                         "agv_id": best_agv_id,
                         "pickup_pos": task.pickup_pos,
                         "delivery_pos": task.delivery_pos,
-                        "distance": best_distance
+                        "distance": best_score
                     })
                     
                     self.logger.info(
                         f"分配任务 {task.task_id} → AGV {best_agv_id} "
-                        f"(距离 {best_distance})"
+                        f"(score {best_score})"
                     )
         
         return assigned_tasks

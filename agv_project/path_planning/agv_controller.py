@@ -35,6 +35,9 @@ from interface.data_types import Task, TaskStatus, AGVState, AGVStatus
 from interface.data_types import manhattan_distance
 from path_planning.mapf_planner import MAPFPlanner
 from path_planning.rl_collision_avoidance import RLCollisionAvoidance, ACTIONS, ACTION_DELTAS
+from path_planning.rl.dqn_agent import DQNAgent
+from path_planning.deadlock_detector import DeadlockDetector
+from path_planning.metrics_collector import MetricsCollector
 
 
 # ==========================================
@@ -95,33 +98,40 @@ class AGVController(BaseModule):
             rl_avoidance: RL避撞控制器
         """
         super().__init__("controller")
-        
+
         self.env = env
         self.mapf_planner = mapf_planner
         self.rl_avoidance = rl_avoidance
-        
+
         # AGV运行时状态
         self.agvs: Dict[int, AGVRuntimeState] = {}
-        
+
         # 调度模块引用（由外部设置）
         self.task_allocator = None
-        
+
         # 仿真状态
         self.current_step = 0
         self.is_running = False
-        
+
         # 统计信息
         self.total_tasks_completed = 0
         self.total_steps_taken = 0
-        
+
+        # ===== 新增: RL核心模块 =====
+        self.dqn_agent = DQNAgent(grid_size=15)
+        self.deadlock_detector = DeadlockDetector()
+        self.metrics = MetricsCollector()
+
+        # 标记是否使用 RL 主导路径规划
+        self.use_rl_primary = True  # True=RL主导, False=CBS主导(兼容旧模式)
+        self.use_random_policy = False
+
         # ===== RL训练相关 =====
-        # 记录每个AGV的上一步状态和位置（用于经验收集）
-        self.agv_prev_states: Dict[int, any] = {}      # agv_id -> prev_state
-        self.agv_prev_positions: Dict[int, Tuple[int, int]] = {}  # agv_id -> prev_pos
-        
-        # 训练计数器
+        self.agv_prev_states: Dict[int, any] = {}
+        self.agv_prev_positions: Dict[int, Tuple[int, int]] = {}
+
         self.train_step_counter = 0
-        self.rl_train_interval = 4  # 每4步训练一次
+        self.rl_train_interval = 4
         
         self.logger.info("AGV控制器初始化完成")
     
@@ -233,15 +243,22 @@ class AGVController(BaseModule):
     
     def _plan_paths(self):
         """
-        为所有活跃AGV规划路径
-        
-        使用MAPF为所有需要路径的AGV规划无冲突路径。
+        为所有活跃AGV规划全局路径。
+        增量更新：只在无路径、卡住、或定期重规划时调用CBS。
         """
-        # 收集需要规划路径的AGV
+        replan_interval = 8  # 每8步重规划，让路径实时适应障碍物变化
         agents_to_plan = []
         for agv_id, agv in self.agvs.items():
             if agv.status in [AGVStatus.MOVING_TO_PICKUP, AGVStatus.MOVING_TO_DELIVERY]:
-                if agv.goal_pos is not None:
+                if agv.goal_pos is None:
+                    continue
+                need_replan = (
+                    not agv.path or  # 无路径
+                    agv.path_index >= len(agv.path) - 1 or  # 路径走完
+                    agv.waiting_steps > 15 or  # 卡住太久
+                    self.current_step % replan_interval == 0  # 定期重规划
+                )
+                if need_replan:
                     agents_to_plan.append((agv_id, agv.position, agv.goal_pos))
         
         if not agents_to_plan:
@@ -258,81 +275,282 @@ class AGVController(BaseModule):
         
         # 使用MAPF规划路径
         solution = self.mapf_planner.solve(agents_to_plan, occupied_positions=other_positions)
-        
-        # 更新AGV路径
+
+        # 更新AGV路径（带平滑，去除冗余转折点）
         for agv_id, path in solution.items():
-            if agv_id in self.agvs:
-                agv = self.agvs[agv_id]
-                if len(path) > 1:
-                    agv.path = path
-                    agv.path_index = 0
+            if agv_id in self.agvs and len(path) > 1:
+                smoothed = self._smooth_path(path, obstacles)
+                self.agvs[agv_id].path = smoothed
+                self.agvs[agv_id].path_index = 0
+
+    def _smooth_path(self, path, obstacles):
+        """路径平滑：移除直线可达的中间路标点，消除不必要的转折"""
+        if len(path) <= 2:
+            return path
+        result = [path[0]]
+        i = 0
+        while i < len(path) - 1:
+            # 从当前位置尽可能远地沿直线跳
+            furthest = i + 1
+            for j in range(len(path) - 1, i, -1):
+                if self._line_clear(path[i], path[j], obstacles):
+                    furthest = j
+                    break
+            result.append(path[furthest])
+            i = furthest
+        return result
+
+    def _line_clear(self, p1, p2, obstacles):
+        """检查p1到p2的直线路径是否无障碍。
+        移动障碍物不阻挡——它们会移动，不应让AGV绕远路。
+        只检查静态障碍物（grid值为1的墙壁/货架）。"""
+        x1, y1 = p1; x2, y2 = p2
+        dx = abs(x2 - x1); dy = abs(y2 - y1)
+        sx = 1 if x2 > x1 else -1 if x2 < x1 else 0
+        sy = 1 if y2 > y1 else -1 if y2 < y1 else 0
+        err = dx - dy
+        cx, cy = x1, y1
+        while (cx, cy) != (x2, y2):
+            if (cx, cy) != (x1, y1):
+                if 0 <= cx < self.env.width and 0 <= cy < self.env.height:
+                    if self.env.grid[cy][cx] == 1:
+                        return False
+                else:
+                    return False
+            e2 = 2 * err
+            if e2 > -dy:
+                err -= dy; cx += sx
+            if e2 < dx:
+                err += dx; cy += sy
+        return True
     
     def _move_agvs(self):
-        """
-        移动所有AGV
-        
-        对每个AGV：
-        1. 如果有MAPF路径，沿路径前进
-        2. 如果前方有动态障碍物，使用RL避撞
-        3. 更新位置
-        4. 收集RL训练经验（训练模式下）
-        """
-        # 获取当前所有AGV位置
+        """RL驱动的AGV移动 — 每步用策略网络决策方向"""
         all_positions = {aid: a.position for aid, a in self.agvs.items()}
         occupied = set(all_positions.values())
-        
-        # 获取障碍物位置
         obstacle_positions = set(o.position for o in self.env.obstacles)
-        
+
+        # 死锁检测
+        agv_state_snapshots = {
+            aid: {
+                'position': a.position, 'goal_pos': a.goal_pos,
+                'path': a.path, 'path_index': a.path_index,
+                'waiting_steps': a.waiting_steps, 'is_loaded': a.is_loaded,
+            }
+            for aid, a in self.agvs.items()
+        }
+        deadlock_cycle = self.deadlock_detector.detect(
+            agv_state_snapshots, occupied | obstacle_positions, self.current_step)
+
+        if deadlock_cycle:
+            recovery = self.deadlock_detector.recover(agv_state_snapshots, deadlock_cycle)
+            for agv_id, new_pos in recovery.items():
+                if agv_id in self.agvs:
+                    self.agvs[agv_id].position = new_pos
+                    self.agvs[agv_id].waiting_steps = 0
+            self.metrics.record_deadlock(deadlock_cycle,
+                list(recovery.keys())[0] if recovery else -1, self.current_step)
+
         for agv_id, agv in self.agvs.items():
             if agv.status not in [AGVStatus.MOVING_TO_PICKUP, AGVStatus.MOVING_TO_DELIVERY]:
                 continue
-            
             if agv.goal_pos is None:
                 continue
-            
-            # 记录移动前的位置（用于奖励计算）
-            prev_pos = agv.position
-            
-            # 检查是否已到达目标
+
+            # 到达目标检查
             if agv.position == agv.goal_pos:
-                # 先收集经验（在 _handle_arrival 修改 goal_pos 之前）
-                if self.rl_avoidance.is_training:
-                    self._collect_arrival_experience(agv_id, agv, prev_pos, arrived=True)
                 self._handle_arrival(agv)
                 continue
-            
-            # 尝试沿MAPF路径前进
-            moved = False
-            if agv.path and agv.path_index < len(agv.path) - 1:
-                next_pos = agv.path[agv.path_index + 1]
-                
-                # 检查下一位置是否被占用
-                if next_pos not in occupied or next_pos == agv.position:
-                    # 检查是否有障碍物
-                    if next_pos not in obstacle_positions:
-                        # 移动AGV
-                        old_pos = agv.position
-                        agv.position = next_pos
-                        agv.path_index += 1
-                        occupied.remove(old_pos)
-                        occupied.add(next_pos)
-                        all_positions[agv_id] = next_pos
-                        moved = True
-                        self.total_steps_taken += 1
-                        
-                        # 收集沿路径移动的经验
-                        if self.rl_avoidance.is_training:
-                            self._collect_path_move_experience(agv_id, agv, prev_pos, next_pos, 
-                                                               occupied, obstacle_positions)
-            
-            if not moved:
-                # 使用RL避撞
-                self._rl_avoid(agv, all_positions, occupied, obstacle_positions)
-        
-        # 每步结束后执行RL训练
-        if self.rl_avoidance.is_training:
-            self._perform_rl_training()
+
+            if self.use_random_policy:
+                self._random_move_agv(agv, all_positions, occupied, obstacle_positions)
+            elif self.use_rl_primary:
+                self._rl_move_agv(agv, all_positions, occupied, obstacle_positions)
+            else:
+                self._mapf_move_agv(agv, all_positions, occupied, obstacle_positions)
+
+        # 记录指标
+        self.metrics.record_step(
+            {aid: {'position': a.position, 'status': str(a.status),
+                   'is_loaded': a.is_loaded, 'battery': a.battery}
+             for aid, a in self.agvs.items()},
+            self.total_tasks_completed, self.current_step)
+
+        # RL训练步骤
+        if self.dqn_agent.epsilon > self.dqn_agent.epsilon_end:
+            loss = self.dqn_agent.train_step()
+            self.metrics.record_training(loss, None, self.dqn_agent.epsilon)
+
+    def _rl_move_agv(self, agv, all_positions, occupied, obstacle_positions):
+        """RL 策略网络决策移动方向，以 MAPF 路径路标为子目标"""
+        other_agvs = [pos for aid, pos in all_positions.items() if aid != agv.agv_id]
+
+        # 确定子目标
+        sub_goal = agv.goal_pos
+        if agv.path and agv.path_index < len(agv.path) - 1:
+            lookahead = min(5, len(agv.path) - agv.path_index - 1)
+            sub_goal = agv.path[agv.path_index + lookahead]
+            if agv.path_index + 1 < len(agv.path):
+                sub_goal = agv.path[agv.path_index + 1]
+
+        dist_to_subgoal = abs(agv.position[0]-sub_goal[0]) + abs(agv.position[1]-sub_goal[1])
+        use_direct = dist_to_subgoal > 12
+
+        valid = self._get_valid_rl_actions(agv.position, occupied | obstacle_positions)
+
+        # 防振荡：禁止直接反向上一帧的移动
+        REVERSE = {0: 1, 1: 0, 2: 3, 3: 2}
+        last_action = getattr(agv, 'last_action', None)
+        if last_action is not None and last_action in REVERSE:
+            reverse = REVERSE[last_action]
+            no_reverse = [a for a in valid if a != reverse]
+            if no_reverse:
+                valid = no_reverse
+
+        if not valid:
+            agv.waiting_steps += 1
+            return
+
+        if use_direct:
+            # 远距离：贪心朝子目标移动
+            # 计算每个动作的距离改进
+            scored = []
+            for a in valid:
+                dx, dy = ACTION_DELTAS[ACTIONS[a]]
+                nx, ny = agv.position[0]+dx, agv.position[1]+dy
+                d = abs(nx-sub_goal[0]) + abs(ny-sub_goal[1])
+                scored.append((d, a))
+            scored.sort()
+
+            best_dist, best_action = scored[0]
+
+            # 关键修复：如果最佳动作是等待或距离没有改进
+            # 检查是否朝子目标方向——如果不是，说明被挡住了，应该等待
+            # 而不是绕路（绕路导致后续更多的绕路，形成绕圈）
+            cur_dist = abs(agv.position[0]-sub_goal[0]) + abs(agv.position[1]-sub_goal[1])
+
+            if best_action == 4:
+                action = 4  # 等待
+            elif best_dist >= cur_dist and agv.waiting_steps < 5:
+                # 最佳动作也不能缩短距离 → 可能被挡住了，短暂等待
+                action = 4
+            else:
+                action = best_action
+
+        # 始终编码状态
+        local, gvec = self.dqn_agent.encoder.encode(
+            agv.position, sub_goal, self.env.grid,
+            list(obstacle_positions), other_agvs,
+            battery=agv.battery, is_loaded=agv.is_loaded, priority=1)
+
+        if not use_direct:
+            action = self.dqn_agent.select_action(local, gvec, valid)
+
+        agv.last_action = action
+
+        dx, dy = ACTION_DELTAS[ACTIONS[action]]
+        new_pos = (agv.position[0] + dx, agv.position[1] + dy)
+
+        waited = (action == 4)
+        old_pos = agv.position
+
+        if not waited:
+            agv.position = new_pos
+            if old_pos in occupied:
+                occupied.discard(old_pos)
+            occupied.add(new_pos)
+            all_positions[agv.agv_id] = new_pos
+            agv.waiting_steps = 0
+            self.total_steps_taken += 1
+
+            # 沿路径前进时更新 path_index
+            if agv.path and agv.path_index + 1 < len(agv.path):
+                if new_pos == agv.path[agv.path_index + 1]:
+                    agv.path_index += 1
+        else:
+            agv.waiting_steps += 1
+
+        if new_pos in obstacle_positions:
+            self.metrics.record_collision(agv.agv_id, self.current_step)
+        collision_agv = sum(1 for aid, pos in all_positions.items()
+                            if aid != agv.agv_id and pos == new_pos)
+
+        next_other_agvs = [pos for aid, pos in all_positions.items() if aid != agv.agv_id]
+        next_local, next_gvec = self.dqn_agent.encoder.encode(
+            agv.position, sub_goal, self.env.grid,
+            list(obstacle_positions), next_other_agvs,
+            battery=agv.battery, is_loaded=agv.is_loaded)
+
+        arrived = (agv.position == agv.goal_pos)
+        congestion = [p for p in other_agvs
+                      if abs(p[0]-agv.position[0])+abs(p[1]-agv.position[1]) <= 3]
+        reward = DQNAgent.compute_reward(
+            old_pos, agv.position, sub_goal, agv.is_loaded,
+            arrived_pickup=arrived,
+            obstacle_collision=(new_pos in obstacle_positions),
+            agv_collision=(collision_agv > 0),
+            waited=waited, battery=agv.battery,
+            congestion_count=len(congestion))
+
+        done = arrived or (new_pos in obstacle_positions) or (collision_agv > 0)
+        self.dqn_agent.store_experience(local, gvec, action, reward, next_local, next_gvec, done)
+
+    def _get_valid_rl_actions(self, pos, occupied):
+        """获取 RL 的有效动作列表。装货口/卸货口允许多AGV进入。"""
+        valid = []
+        for a_idx in range(len(ACTIONS)):
+            dx, dy = ACTION_DELTAS[ACTIONS[a_idx]]
+            nx, ny = pos[0] + dx, pos[1] + dy
+            if 0 <= nx < self.env.width and 0 <= ny < self.env.height:
+                cell = self.env.grid[ny][nx]
+                if cell == 1:
+                    continue
+                is_zone = cell in (2, 3)
+                if (nx, ny) not in occupied or (dx, dy) == (0, 0) or is_zone:
+                    valid.append(a_idx)
+        if not valid:
+            valid.append(4)
+        return valid
+
+    def _mapf_move_agv(self, agv, all_positions, occupied, obstacle_positions):
+        """MAPF路径移动（CBS fallback）"""
+        prev_pos = agv.position
+
+        if agv.path and agv.path_index < len(agv.path) - 1:
+            next_pos = agv.path[agv.path_index + 1]
+            if next_pos not in occupied or next_pos == agv.position:
+                if next_pos not in obstacle_positions:
+                    old_pos = agv.position
+                    agv.position = next_pos
+                    agv.path_index += 1
+                    occupied.discard(old_pos)
+                    occupied.add(next_pos)
+                    all_positions[agv.agv_id] = next_pos
+                    self.total_steps_taken += 1
+                    return
+
+        self._rl_avoid(agv, all_positions, occupied, obstacle_positions)
+
+    def _random_move_agv(self, agv, all_positions, occupied, obstacle_positions):
+        """随机移动策略"""
+        import random
+        valid = self._get_valid_rl_actions(agv.position, occupied | obstacle_positions)
+        if not valid:
+            agv.waiting_steps += 1
+            return
+        action = random.choice(valid)
+        dx, dy = ACTION_DELTAS[ACTIONS[action]]
+        if action != 4:
+            new_pos = (agv.position[0] + dx, agv.position[1] + dy)
+            old_pos = agv.position
+            agv.position = new_pos
+            occupied.discard(old_pos)
+            occupied.add(new_pos)
+            all_positions[agv.agv_id] = new_pos
+            agv.waiting_steps = 0
+            self.total_steps_taken += 1
+        else:
+            agv.waiting_steps += 1
     
     def _rl_avoid(self, agv: AGVRuntimeState, all_positions: Dict[int, Tuple[int, int]],
                   occupied: Set[Tuple[int, int]], obstacle_positions: Set[Tuple[int, int]]):

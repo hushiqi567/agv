@@ -92,7 +92,10 @@ class Simulation:
         self.controller.set_task_allocator(self.task_allocator)
         self.controller.reset()
         
-        # 5. 创建渲染器
+        # 5. 设置控制器模式（RL主导 vs CBS主导）
+        self.controller.use_rl_primary = True  # 默认RL主导
+
+        # 6. 创建渲染器
         if self.render_enabled:
             self.renderer = WarehouseRenderer(self.env, fps=self.render_fps)
             self.renderer.set_agv_controller(self.controller)
@@ -254,6 +257,13 @@ class Simulation:
         self.logger.info(f"完成任务: {stats['tasks_completed']}")
         self.logger.info(f"AGV总移动步数: {stats['steps_taken']}")
         self.logger.info("=" * 50)
+
+        # 导出指标
+        if hasattr(self, 'controller') and hasattr(self.controller, 'metrics'):
+            self.controller.metrics.export_csv()
+            self.controller.metrics.export_charts()
+            summary = self.controller.metrics.get_summary()
+            self.logger.info(f"Metrics summary: {summary}")
     
     def _publish(self, msg_type: MessageType, data: dict):
         """发布消息的便捷方法"""
@@ -277,6 +287,15 @@ def main():
     parser.add_argument("--load-model", type=str, default=None, help="加载预训练模型")
     parser.add_argument("--save-model", type=str, default=None, help="保存训练好的模型")
     parser.add_argument("--gpu", action="store_true", help="使用GPU加速")
+    parser.add_argument("--cbs-primary", action="store_true",
+                        help="使用CBS主导路径规划 (旧模式)")
+    parser.add_argument("--curriculum", action="store_true",
+                        help="启用课程学习训练")
+    parser.add_argument("--export-metrics", action="store_true",
+                        help="导出指标CSV和图表")
+    parser.add_argument("--experiment", type=str, default=None,
+                        choices=["1", "2", "3", "4"],
+                        help="运行指定实验 (1-4)")
     args = parser.parse_args()
     
     # 从全局配置读取日志级别
@@ -311,57 +330,84 @@ def main():
         print(f"训练回合数: {args.train_episodes}")
         print(f"每回合最大步数: {args.steps or config.simulation.max_steps}")
         print("=" * 60)
-        
+
         # 创建仿真（无界面模式）
         sim = Simulation(render=not args.no_render)
-        
+
         # 启用RL训练
         sim.rl_avoidance.set_training(True)
-        
+
         # 加载预训练模型
         if args.load_model:
             sim.rl_avoidance.load_model(args.load_model)
             print(f"已加载模型: {args.load_model}")
-        
+
         # 训练循环
         for episode in range(1, args.train_episodes + 1):
             print(f"\n{'='*50}")
             print(f"训练回合 {episode}/{args.train_episodes}")
             print(f"{'='*50}")
-            
+
             # 重置仿真
             sim._reset()
-            
+
             # 运行一个回合
             sim.max_steps = args.steps or config.simulation.max_steps
             sim.run()
-            
+
             # 回合结束
             sim.rl_avoidance.end_episode()
-            
+
             # 打印训练统计
             stats = sim.rl_avoidance.get_training_stats()
             print(f"  探索率: {stats['epsilon']:.3f}")
             print(f"  经验池: {stats['memory_size']}")
             print(f"  平均损失: {stats['avg_loss_100']:.4f}")
             print(f"  总奖励: {stats['total_rewards']:.1f}")
-        
+
         # 保存模型
         if args.save_model:
             sim.rl_avoidance.save_model(args.save_model)
             print(f"\n模型已保存到: {args.save_model}")
-        
+
+        # 导出指标
+        if args.export_metrics:
+            sim.controller.metrics.export_csv()
+            sim.controller.metrics.export_charts()
+            print("指标已导出")
+
         print("\n训练完成！")
-        
+
+    elif args.experiment:
+        # ===== 实验模式 =====
+        print(f"\n运行实验 {args.experiment}...")
+        if args.experiment == "1":
+            from experiments.run_experiment_1_single import run_experiment_1
+            run_experiment_1(num_trials=20)
+        elif args.experiment == "2":
+            from experiments.run_experiment_2_ablation import run_experiment_2
+            run_experiment_2(steps=args.steps or 200)
+        elif args.experiment == "3":
+            from experiments.run_experiment_3_scalability import run_experiment_3
+            run_experiment_3(steps=args.steps or 300)
+        elif args.experiment == "4":
+            from experiments.run_experiment_4_comparison import run_experiment_4
+            run_experiment_4(steps=args.steps or 200)
+
     else:
         # ===== 普通仿真模式 =====
         # 创建并运行仿真
         sim = Simulation(render=not args.no_render)
-        
+
         # 覆盖最大步数
         if args.steps:
             sim.max_steps = args.steps
-        
+
+        # CBS主导模式
+        if args.cbs_primary:
+            sim.controller.use_rl_primary = False
+            print("使用 CBS 主导路径规划模式")
+
         sim.run()
     
     print("\n仿真结束，感谢使用！")

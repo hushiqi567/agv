@@ -32,9 +32,9 @@ from interface.data_types import AGVStatus
 # 渲染配置
 # ==========================================
 
-# 窗口尺寸（像素）- 放大
-WINDOW_WIDTH = 1600
-WINDOW_HEIGHT = 1000
+# 窗口尺寸（像素）
+WINDOW_WIDTH = 1000
+WINDOW_HEIGHT = 700
 
 # 网格渲染模式
 # 50x50 网格，每个格子大小根据窗口自适应
@@ -48,7 +48,7 @@ GRID_OFFSET_X = (WINDOW_WIDTH - CELL_SIZE * MAP_WIDTH) // 2
 GRID_OFFSET_Y = (WINDOW_HEIGHT - 150 - CELL_SIZE * MAP_HEIGHT) // 2
 
 # 帧率
-FPS = 10
+FPS = 30
 
 # 信息栏高度
 INFO_BAR_HEIGHT = 130
@@ -128,8 +128,8 @@ class WarehouseRenderer:
         pygame.init()
         pygame.display.set_caption("AGV仓库环境仿真 - 50×50网格")
         
-        # 创建窗口
-        self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+        # 创建窗口（可调整大小）
+        self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.RESIZABLE)
         
         # 字体 - 使用系统字体支持中文
         # 尝试多个常见中文字体路径

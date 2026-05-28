@@ -148,6 +148,22 @@ class RLConfig:
     num_episodes: int = 1000
     max_steps_per_episode: int = 200
 
+    # 新增：状态编码
+    local_grid_size: int = 15
+    num_state_channels: int = 5
+    use_global_features: bool = True
+
+    # 新增：课程学习
+    curriculum_enabled: bool = False
+    curriculum_stage: int = 1
+    curriculum_success_threshold: float = 0.8
+
+    # 新增：PPO
+    ppo_clip_epsilon: float = 0.2
+    ppo_entropy_coef: float = 0.01
+    ppo_value_coef: float = 0.5
+    ppo_epochs: int = 10
+
 
 @dataclass
 class RewardConfig:
@@ -174,6 +190,23 @@ class RewardConfig:
     battery_low_penalty: float = -20.0
     idle_penalty: float = -0.5
     conflict_wait_penalty: float = -2.0
+
+
+@dataclass
+class DeadlockConfig:
+    """死锁检测配置"""
+    detection_interval: int = 10
+    max_wait_steps: int = 20
+    recovery_steps: int = 3
+
+
+@dataclass
+class MetricsConfig:
+    """指标采集配置"""
+    export_interval: int = 100
+    export_dir: str = "logs/metrics"
+    export_csv: bool = True
+    export_charts: bool = True
 
 
 # ==========================================
@@ -211,6 +244,8 @@ class ConfigManager:
             self.simulation = SimulationConfig()
             self.rl = RLConfig()
             self.reward = RewardConfig()
+            self.deadlock = DeadlockConfig()
+            self.metrics = MetricsConfig()
             self._setup_logging()
             ConfigManager._initialized = True
     
@@ -272,6 +307,8 @@ class ConfigManager:
             "simulation": asdict(self.simulation),
             "rl": asdict(self.rl),
             "reward": asdict(self.reward),
+            "deadlock": asdict(self.deadlock),
+            "metrics": asdict(self.metrics),
         }
     
     def save(self, filepath: str = "config.json"):
@@ -318,6 +355,10 @@ class ConfigManager:
             self.rl = RLConfig(**data["rl"])
         if "reward" in data:
             self.reward = RewardConfig(**data["reward"])
+        if "deadlock" in data:
+            self.deadlock = DeadlockConfig(**data["deadlock"])
+        if "metrics" in data:
+            self.metrics = MetricsConfig(**data["metrics"])
         
         self.logger.info(f"配置已从 {filepath} 加载")
     
