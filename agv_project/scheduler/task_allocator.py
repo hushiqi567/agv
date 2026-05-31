@@ -144,9 +144,16 @@ class TaskAllocator(BaseModule):
         
         if task_id is not None:
             self.od_flow.complete_task(task_id)
-        
+
         if agv_id is not None and agv_id in self.agvs:
             self.agvs[agv_id].status = AGVStatus.IDLE
+
+    def abandon_task(self, task_id: int, agv_id: int):
+        """AGV因电量不足放弃任务，退回待分配池"""
+        self.od_flow.abandon_task(task_id)
+        if agv_id in self.agvs:
+            self.agvs[agv_id].current_task = None
+            self.agvs[agv_id].is_loaded = False
             if hasattr(self.agvs[agv_id], 'current_task'):
                 self.agvs[agv_id].current_task = None
     
@@ -262,10 +269,11 @@ class TaskAllocator(BaseModule):
         # 高优先级任务先分配
         pending_tasks.sort(key=lambda t: t.priority, reverse=True)
 
-        idle_agvs = {
-            agv_id: agv for agv_id, agv in self.agvs.items()
-            if agv.status == AGVStatus.IDLE
-        }
+        # 电池感知：只考虑电量≥30%的空闲AGV
+        idle_agvs = {}
+        for agv_id, agv in self.agvs.items():
+            if agv.status == AGVStatus.IDLE and agv.battery >= 30.0:
+                idle_agvs[agv_id] = agv
 
         if not idle_agvs:
             return assigned_tasks
@@ -286,9 +294,23 @@ class TaskAllocator(BaseModule):
 
             for agv_id, agv in idle_agvs.items():
                 dist = manhattan_distance(agv.position, task.pickup_pos)
-                # 如果AGV就在取货口旁边（距离<5），直接分配，不受拥挤惩罚影响
+
+                # 能源检查：预估往返消耗必须 < 剩余电量
+                delivery_dist = manhattan_distance(
+                    task.pickup_pos, task.delivery_pos)
+                estimated = (dist + delivery_dist) * _config.agv.battery_consumption_per_step * 1.25
+                if estimated >= agv.battery:
+                    continue  # 电量不够完成此任务
+
+                # 拥挤惩罚
                 congestion_penalty = 0 if dist < 5 else active_pickups.get(task.pickup_pos, 0) * 5
-                score = dist + congestion_penalty
+
+                # 高优先级任务偏好高电量AGV
+                battery_bonus = 0
+                if task.priority >= 4:
+                    battery_bonus = (100.0 - agv.battery) * 0.1
+
+                score = dist + congestion_penalty + battery_bonus
                 if score < best_score:
                     best_score = score
                     best_agv_id = agv_id

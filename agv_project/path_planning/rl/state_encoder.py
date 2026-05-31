@@ -34,11 +34,13 @@ class StateEncoder:
                grid: List[List[int]], obstacles: List[Tuple[int, int]],
                other_agvs: List[Tuple[int, int]],
                battery: float = 100.0, is_loaded: bool = False,
-               priority: int = 1) -> Tuple[np.ndarray, np.ndarray]:
+               priority: int = 1,
+               charging_stations: List[Tuple[int, int]] = None) -> Tuple[np.ndarray, np.ndarray]:
         """
         Returns:
             local_grid: (5, 15, 15) float32
-            global_vec: (4,) float32
+            global_vec: (6,) float32 — [dist_to_goal, battery%, is_loaded,
+                                        priority, dist_to_cs, needs_charge]
         """
         ax, ay = agv_pos
         gx, gy = goal_pos
@@ -91,13 +93,20 @@ class StateEncoder:
                         if 0 <= lx < self.grid_size and 0 <= ly < self.grid_size:
                             local[4, ly, lx] += 0.2
 
-        # 全局特征向量
+        # 全局特征向量 (6维)
         max_dist = self.map_width + self.map_height
+        cs_list = charging_stations if charging_stations else []
+        if cs_list:
+            dist_to_cs = min(manhattan_distance(agv_pos, cs) for cs in cs_list)
+        else:
+            dist_to_cs = max_dist
         global_vec = np.array([
-            min(manhattan_distance(agv_pos, goal_pos) / max_dist, 1.0),
-            battery / 100.0,
-            1.0 if is_loaded else 0.0,
-            priority / 5.0,
+            min(manhattan_distance(agv_pos, goal_pos) / max_dist, 1.0),  # [0] 到目标距离
+            battery / 100.0,                                               # [1] 电量百分比
+            1.0 if is_loaded else 0.0,                                    # [2] 是否载货
+            priority / 5.0,                                                # [3] 任务优先级
+            min(dist_to_cs / max_dist, 1.0),                               # [4] 到最近充电站距离
+            1.0 if battery <= 35.0 else 0.0,                              # [5] 需要充电标志
         ], dtype=np.float32)
 
         return local, global_vec
@@ -109,8 +118,9 @@ def manhattan_distance(a: Tuple[int, int], b: Tuple[int, int]) -> int:
 
 def encode_state(agv_pos, goal_pos, grid, obstacles, other_agvs,
                  battery=100.0, is_loaded=False, priority=1,
+                 charging_stations=None,
                  grid_size=15, map_width=50, map_height=50):
     """便捷函数，使用默认参数编码状态"""
     encoder = StateEncoder(grid_size, map_width=map_width, map_height=map_height)
     return encoder.encode(agv_pos, goal_pos, grid, obstacles, other_agvs,
-                          battery, is_loaded, priority)
+                          battery, is_loaded, priority, charging_stations)

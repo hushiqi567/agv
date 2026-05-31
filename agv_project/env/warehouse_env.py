@@ -40,12 +40,14 @@ CELL_EMPTY = CellType.EMPTY.value          # 0 - 空地
 CELL_OBSTACLE = CellType.OBSTACLE.value    # 1 - 障碍物
 CELL_LOADING = CellType.LOADING_ZONE.value # 2 - 进货口
 CELL_UNLOADING = CellType.UNLOADING_ZONE.value # 3 - 出货口
+CELL_CHARGING = CellType.CHARGING_STATION.value  # 4 - 充电站
 
 # 颜色定义（RGB）
 COLOR_EMPTY = (240, 240, 240)       # 浅灰 - 空地
 COLOR_LOADING = (220, 80, 80)       # 红色 - 装货口（AGV在此取货）
 COLOR_UNLOADING = (70, 130, 180)    # 蓝色 - 卸货口（AGV在此送货）
 COLOR_OBSTACLE = (30, 30, 30)       # 黑色 - 障碍物
+COLOR_CHARGING = (255, 215, 0)      # 金色 - 充电站
 COLOR_GRID_LINE = (200, 200, 200)   # 灰色 - 网格线
 COLOR_BACKGROUND = (255, 255, 255)  # 白色 - 背景
 
@@ -102,7 +104,10 @@ class WarehouseEnv(BaseModule):
         
         # 出货口位置列表（中间两列各6个交错排列）
         self.unloading_zones: List[Tuple[int, int]] = []
-        
+
+        # 充电站位置列表（4个内部点位）
+        self.charging_stations: List[Tuple[int, int]] = []
+
         # 障碍物管理
         self.obstacles: List[Obstacle] = []
         self.next_obstacle_id = 0
@@ -165,11 +170,18 @@ class WarehouseEnv(BaseModule):
         for y in right_unloading_ys:
             self.grid[y][right_col] = CELL_UNLOADING
             self.unloading_zones.append((right_col, y))
-        
+
+        # 充电站 (4个，分布在内部区域，避开进货口/出货口列)
+        charging_positions = [(12, 12), (12, 37), (37, 12), (37, 37)]
+        for cx, cy in charging_positions:
+            self.grid[cy][cx] = CELL_CHARGING
+            self.charging_stations.append((cx, cy))
+
         self.logger.info(
             f"地图构建完成: "
             f"{len(self.loading_zones)}个进货口, "
-            f"{len(self.unloading_zones)}个出货口"
+            f"{len(self.unloading_zones)}个出货口, "
+            f"{len(self.charging_stations)}个充电站"
         )
     
     def reset(self):
@@ -292,6 +304,7 @@ class WarehouseEnv(BaseModule):
         forbidden = set()
         forbidden.update(self.loading_zones)
         forbidden.update(self.unloading_zones)
+        forbidden.update(self.charging_stations)
         return forbidden
 
     def _init_obstacles(self):

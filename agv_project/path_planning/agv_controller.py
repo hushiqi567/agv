@@ -15,6 +15,7 @@ if _project_root not in sys.path:
 from interface.communication import BaseModule, MessageType, Message
 from interface.data_types import Task, TaskStatus, AGVStatus
 from interface.data_types import manhattan_distance
+from interface.config import ConfigManager
 from path_planning.mapf_planner import MAPFPlanner, a_star_search
 from path_planning.rl_collision_avoidance import RLCollisionAvoidance, ACTIONS, ACTION_DELTAS
 from path_planning.rl.dqn_agent import DQNAgent
@@ -60,6 +61,14 @@ class AGVController(BaseModule):
         self.use_random_policy = False
 
         self.rl_train_interval = 4
+
+        # 电池系统配置
+        cfg = ConfigManager()
+        self.battery_capacity = cfg.agv.battery_capacity
+        self.battery_consumption = cfg.agv.battery_consumption_per_step
+        self.charge_rate = cfg.agv.charge_rate
+        self.charging_stations = getattr(env, 'charging_stations', [])
+
         self.logger.info("AGV控制器初始化完成")
 
     def set_task_allocator(self, task_allocator):
@@ -117,6 +126,7 @@ class AGVController(BaseModule):
 
     def step(self):
         self.current_step += 1
+        self._manage_battery()
         self._plan_paths()
         self._move_agvs()
         self._check_deadlock_and_recover()
@@ -130,7 +140,8 @@ class AGVController(BaseModule):
         replan_interval = 12
         for agv_id, agv in self.agvs.items():
             if agv.status not in [AGVStatus.MOVING_TO_PICKUP,
-                                  AGVStatus.MOVING_TO_DELIVERY]:
+                                  AGVStatus.MOVING_TO_DELIVERY,
+                                  AGVStatus.MOVING_TO_CHARGE]:
                 continue
             if agv.goal_pos is None:
                 continue
@@ -161,6 +172,65 @@ class AGVController(BaseModule):
                 agv.waiting_steps = 0
 
     # ============================================================
+    # 电池管理: 消耗、低电告警、自动充电、充电恢复
+    # ============================================================
+    def _consume_battery(self, agv, multiplier: float = 1.0):
+        """消耗电量。multiplier: 1.0=空载, 1.5=满载, 2.0=RL绕行, 0.3=等待"""
+        consumption = self.battery_consumption * multiplier
+        agv.battery = max(0.0, agv.battery - consumption)
+
+    def _find_nearest_charging_station(self, pos):
+        """找到距离pos最近的充电站"""
+        if not self.charging_stations:
+            return None
+        return min(self.charging_stations,
+                   key=lambda cs: manhattan_distance(pos, cs))
+
+    def _manage_battery(self):
+        """管理所有AGV的电量：充电恢复 / 低电告警并导航到充电站"""
+        LOW_THRESHOLD = 30.0
+        RESUME_THRESHOLD = 80.0
+
+        for agv_id, agv in self.agvs.items():
+            # Case 1: 正在充电站充电
+            if agv.status == AGVStatus.CHARGING:
+                agv.battery = min(self.battery_capacity,
+                                  agv.battery + self.charge_rate)
+                if agv.battery >= RESUME_THRESHOLD:
+                    agv.status = AGVStatus.IDLE
+                    agv.goal_pos = None
+                    agv.path = []
+                    agv.path_index = 0
+                    agv.waiting_steps = 0
+                    self.logger.info(
+                        f"AGV {agv_id}: 充电完成 ({agv.battery:.1f}%), 恢复空闲")
+                continue
+
+            # Case 2: 低电量 → 中断任务，前往充电
+            if (agv.battery <= LOW_THRESHOLD
+                    and agv.status not in [AGVStatus.CHARGING,
+                                           AGVStatus.MOVING_TO_CHARGE]):
+                # 放弃当前任务
+                if agv.current_task is not None:
+                    task_id = agv.current_task.task_id
+                    self.logger.warning(
+                        f"AGV {agv_id}: 电量过低 ({agv.battery:.1f}%), "
+                        f"中断任务 {task_id}, 前往充电")
+                    if self.task_allocator:
+                        self.task_allocator.abandon_task(task_id, agv_id)
+                    agv.current_task = None
+                    agv.is_loaded = False
+
+                # 导航到最近充电站
+                target = self._find_nearest_charging_station(agv.position)
+                if target is not None:
+                    agv.status = AGVStatus.MOVING_TO_CHARGE
+                    agv.goal_pos = target
+                    agv.path = []
+                    agv.path_index = 0
+                    agv.waiting_steps = 0
+
+    # ============================================================
     # 死锁检测与恢复: 每10步构建等待图，DFS判环并回退打破
     # ============================================================
     def _check_deadlock_and_recover(self):
@@ -169,7 +239,8 @@ class AGVController(BaseModule):
         agv_states = {}
         for agv_id, agv in self.agvs.items():
             if agv.status in [AGVStatus.MOVING_TO_PICKUP,
-                              AGVStatus.MOVING_TO_DELIVERY]:
+                              AGVStatus.MOVING_TO_DELIVERY,
+                              AGVStatus.MOVING_TO_CHARGE]:
                 agv_states[agv_id] = {
                     'position': agv.position,
                     'goal_pos': agv.goal_pos,
@@ -216,7 +287,8 @@ class AGVController(BaseModule):
 
         for agv_id, agv in self.agvs.items():
             if agv.status not in [AGVStatus.MOVING_TO_PICKUP,
-                                  AGVStatus.MOVING_TO_DELIVERY]:
+                                  AGVStatus.MOVING_TO_DELIVERY,
+                                  AGVStatus.MOVING_TO_CHARGE]:
                 continue
             if agv.goal_pos is None:
                 continue
@@ -239,6 +311,7 @@ class AGVController(BaseModule):
                 # 目标步被挡 → 等待(容忍限度内) 或 RL绕行
                 if agv.waiting_steps < 6:
                     agv.waiting_steps += 1
+                    self._consume_battery(agv, 0.3)
                     continue
                 else:
                     # 等待太久 → RL选绕行方向
@@ -247,6 +320,7 @@ class AGVController(BaseModule):
             elif blocked and target_pos == agv.goal_pos:
                 # 最终目标被挡(例如另一个AGV在卸货口) → 等待
                 agv.waiting_steps += 1
+                self._consume_battery(agv, 0.3)
                 continue
             else:
                 # 目标步空闲 → 直接移动
@@ -273,6 +347,8 @@ class AGVController(BaseModule):
         all_positions[agv.agv_id] = target_pos
         agv.waiting_steps = 0
         self.total_steps_taken += 1
+        multiplier = 1.5 if agv.is_loaded else 1.0
+        self._consume_battery(agv, multiplier)
 
         # 更新路径索引
         if agv.path and agv.path_index + 1 < len(agv.path):
@@ -306,6 +382,7 @@ class AGVController(BaseModule):
 
         if action == 4:
             agv.waiting_steps += 1
+            self._consume_battery(agv, 0.3)
         else:
             old_pos = agv.position
             agv.position = new_pos
@@ -314,6 +391,7 @@ class AGVController(BaseModule):
             all_positions[agv.agv_id] = new_pos
             agv.waiting_steps = 0
             self.total_steps_taken += 1
+            self._consume_battery(agv, 2.0)
 
             # 存储RL经验
             next_other = [p for aid, p in all_positions.items() if aid != agv.agv_id]
@@ -340,7 +418,7 @@ class AGVController(BaseModule):
                 cell = self.env.grid[ny][nx]
                 if cell == 1:
                     continue
-                is_zone = cell in (2, 3)
+                is_zone = cell in (2, 3, 4)  # 装货口/卸货口/充电站允许多AGV进入
                 if (dx, dy) == (0, 0) or (nx, ny) not in occupied or is_zone:
                     valid.append(a_idx)
         if not valid:
@@ -360,6 +438,16 @@ class AGVController(BaseModule):
                 agv.path_index = 0
                 agv.waiting_steps = 0
                 self.logger.info(f"AGV {agv.agv_id}: 已取货 → 送货点 {agv.goal_pos}")
+
+        elif agv.status == AGVStatus.MOVING_TO_CHARGE:
+            agv.status = AGVStatus.CHARGING
+            agv.goal_pos = None
+            agv.path = []
+            agv.path_index = 0
+            agv.waiting_steps = 0
+            self.logger.info(
+                f"AGV {agv.agv_id}: 到达充电站，开始充电 "
+                f"(电量: {agv.battery:.1f}%)")
 
         elif agv.status == AGVStatus.MOVING_TO_DELIVERY:
             agv.is_loaded = False
@@ -411,9 +499,12 @@ class AGVController(BaseModule):
         idle = sum(1 for a in self.agvs.values() if a.status == AGVStatus.IDLE)
         moving = sum(1 for a in self.agvs.values() if a.status in
                      [AGVStatus.MOVING_TO_PICKUP, AGVStatus.MOVING_TO_DELIVERY])
+        charging = sum(1 for a in self.agvs.values() if a.status in
+                       [AGVStatus.CHARGING, AGVStatus.MOVING_TO_CHARGE])
         return {
             "step": self.current_step,
-            "agvs": {"total": len(self.agvs), "idle": idle, "moving": moving},
+            "agvs": {"total": len(self.agvs), "idle": idle,
+                     "moving": moving, "charging": charging},
             "tasks_completed": self.total_tasks_completed,
             "steps_taken": self.total_steps_taken
         }

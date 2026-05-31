@@ -32,12 +32,13 @@ REWARD_AGV_COLLISION = -10.0
 REWARD_WAIT = -0.3
 REWARD_DEADLOCK = -5.0
 REWARD_CONGESTION = -1.0
+REWARD_BATTERY_LOW = -2.0  # 电量耗尽惩罚
 
 
 class HybridDQN(nn.Module):
     """混合输入 DQN: 卷积处理局部网格 + 全连接处理全局特征"""
 
-    def __init__(self, grid_size=15, num_channels=5, global_dim=4,
+    def __init__(self, grid_size=15, num_channels=5, global_dim=6,
                  num_actions=5, hidden_dim=256):
         super().__init__()
         self.conv1 = nn.Conv2d(num_channels, 32, kernel_size=3, padding=1)
@@ -263,6 +264,14 @@ class DQNAgent:
             reward += REWARD_WAIT
         if congestion_count >= 3:
             reward += REWARD_CONGESTION * (congestion_count / 3.0)
+
+        # 电池激励: 低电量时步惩罚倍增
+        if battery < 20.0:
+            reward *= 4.0
+        elif battery < 50.0:
+            reward *= 2.0
+        if battery <= 0.0:
+            reward += REWARD_BATTERY_LOW
 
         return reward
 

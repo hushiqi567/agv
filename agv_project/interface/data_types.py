@@ -36,6 +36,7 @@ class AGVStatus(Enum):
     MOVING_TO_DELIVERY = "moving_to_delivery"  # 前往送货点
     LOADING = "loading"        # 装货中
     UNLOADING = "unloading"    # 卸货中
+    MOVING_TO_CHARGE = "moving_to_charge"  # 前往充电站
     CHARGING = "charging"      # 充电中
     BLOCKED = "blocked"        # 被阻塞（等待其他AGV）
     ERROR = "error"            # 故障状态

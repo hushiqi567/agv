@@ -193,7 +193,8 @@ class Simulation:
                 f"步数 {self.current_step}: "
                 f"已完成 {stats['tasks_completed']} 个任务, "
                 f"AGV: 空闲{stats['agvs']['idle']} "
-                f"移动中{stats['agvs']['moving']}"
+                f"移动{stats['agvs']['moving']} "
+                f"充电{stats['agvs'].get('charging', 0)}"
             )
     
     def _handle_events(self) -> bool:
@@ -412,14 +413,19 @@ def main():
 
     else:
         # ===== 普通仿真模式 =====
-        # 创建并运行仿真
         sim = Simulation(render=not args.no_render)
 
-        # 覆盖最大步数
         if args.steps:
             sim.max_steps = args.steps
 
-        # CBS主导模式
+        # 加载预训练RL模型到控制器的DQNAgent
+        if args.load_model:
+            if os.path.exists(args.load_model):
+                sim.controller.dqn_agent.load_model(args.load_model)
+                print(f"已加载模型: {args.load_model}")
+            else:
+                print(f"模型文件不存在: {args.load_model}")
+
         if args.cbs_primary:
             sim.controller.use_rl_primary = False
             print("使用 CBS 主导路径规划模式")

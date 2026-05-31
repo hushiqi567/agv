@@ -242,7 +242,26 @@ class ODFlowManager:
         
         self.logger.info(f"任务 {task_id} 已完成")
         return True
-    
+
+    def abandon_task(self, task_id: int) -> bool:
+        """放弃任务：将活跃任务退回待分配池（不释放出货口）。
+
+        AGV因电量不足中断任务时调用。任务重新进入待分配状态。
+        """
+        task = self.task_pool.get(task_id)
+        if task is None:
+            return False
+
+        if task_id in self.active_tasks:
+            del self.active_tasks[task_id]
+
+        task.status = TaskStatus.PENDING
+        task.assigned_agv_id = None
+        self.pending_tasks.append(task)
+
+        self.logger.info(f"任务 {task_id} 已被放弃，重新加入待分配池")
+        return True
+
     def get_pending_tasks(self) -> List[Task]:
         """获取所有待分配任务"""
         return self.pending_tasks.copy()

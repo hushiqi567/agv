@@ -22,8 +22,10 @@ if _project_root not in sys.path:
 
 from env.warehouse_env import (
     WarehouseEnv, CELL_EMPTY, CELL_OBSTACLE, CELL_LOADING, CELL_UNLOADING,
+    CELL_CHARGING,
     COLOR_EMPTY, COLOR_LOADING, COLOR_UNLOADING, COLOR_OBSTACLE,
-    COLOR_GRID_LINE, COLOR_BACKGROUND, MAP_WIDTH, MAP_HEIGHT
+    COLOR_CHARGING, COLOR_GRID_LINE, COLOR_BACKGROUND,
+    MAP_WIDTH, MAP_HEIGHT
 )
 from interface.data_types import AGVStatus
 
@@ -72,6 +74,8 @@ AGV_STATUS_COLORS = {
     "LOADING": (255, 255, 100),           # 黄色 - 装载中
     "MOVING_TO_DELIVERY": (100, 255, 100),# 浅绿 - 前往送货
     "UNLOADING": (255, 150, 100),         # 橙色 - 卸货中
+    "CHARGING": (255, 215, 0),            # 金色 - 充电中
+    "MOVING_TO_CHARGE": (255, 200, 50),   # 橙金 - 前往充电
 }
 
 # AGV状态文字标签
@@ -81,6 +85,8 @@ AGV_STATUS_LABELS = {
     "LOADING": "装载",
     "MOVING_TO_DELIVERY": "送货",
     "UNLOADING": "卸货",
+    "CHARGING": "充电",
+    "MOVING_TO_CHARGE": "去充电",
 }
 
 
@@ -224,6 +230,8 @@ class WarehouseRenderer:
                     color = COLOR_LOADING
                 elif cell_type == CELL_UNLOADING:
                     color = COLOR_UNLOADING
+                elif cell_type == CELL_CHARGING:
+                    color = COLOR_CHARGING
                 elif cell_type == CELL_OBSTACLE:
                     color = COLOR_OBSTACLE
                 else:
@@ -346,7 +354,26 @@ class WarehouseRenderer:
                 pygame.draw.circle(self.screen, (255, 215, 0), (center_x, center_y), inner_radius, 2)
                 # 在中心画一个小星星或点
                 pygame.draw.circle(self.screen, (255, 215, 0), (center_x, center_y), 3)
-            
+
+            # 电池条（AGV下方）
+            bat_pct = agv.battery / 100.0 if agv_id in self.agv_controller.agvs else 1.0
+            bar_w = max(4, CELL_SIZE - 2)
+            bar_h = max(2, CELL_SIZE // 8)
+            bar_x = px + 1
+            bar_y = py + CELL_SIZE - bar_h - 1
+            pygame.draw.rect(self.screen, (60, 60, 60),
+                             (bar_x, bar_y, bar_w, bar_h))
+            if bat_pct > 0.5:
+                bc = (int(255 * (1 - bat_pct) * 2), 200, 50)
+            elif bat_pct > 0.2:
+                bc = (255, int(255 * (bat_pct - 0.2) / 0.3 * 0.8 + 50), 50)
+            else:
+                bc = (255, 50, 50)
+            fw = int(bar_w * bat_pct)
+            if fw > 0:
+                pygame.draw.rect(self.screen, bc,
+                                 (bar_x, bar_y, fw, bar_h))
+
             # 在AGV上显示ID
             if CELL_SIZE >= 10:
                 id_text = self.font_tiny.render(str(agv_id), True, (255, 255, 255))
@@ -402,6 +429,7 @@ class WarehouseRenderer:
             stats = self.agv_controller.get_statistics()
             idle_count = stats['agvs']['idle']
             moving_count = stats['agvs']['moving']
+            charging_count = stats['agvs'].get('charging', 0)
             loading_count = stats['agvs'].get('loading', 0)
             tasks_completed = stats['tasks_completed']
         
@@ -419,7 +447,7 @@ class WarehouseRenderer:
         
         # AGV状态统计
         agv_text = self.font_small.render(
-            f"AGV: 空闲{idle_count} 移动中{moving_count} 装卸{loading_count}", 
+            f"AGV: 空闲{idle_count} 移动{moving_count} 充电{charging_count} 装卸{loading_count}",
             True, (50, 50, 50)
         )
         self.screen.blit(agv_text, (200, info_y + 10))
@@ -438,8 +466,9 @@ class WarehouseRenderer:
         
         # 图例
         legend_items = [
-            ("装货口", COLOR_LOADING),    # 红色 - AGV取货点
-            ("卸货口", COLOR_UNLOADING),  # 蓝色 - AGV送货点
+            ("装货口", COLOR_LOADING),
+            ("卸货口", COLOR_UNLOADING),
+            ("充电站", COLOR_CHARGING),
             ("障碍物", COLOR_OBSTACLE),
             ("AGV", AGV_COLORS[0]),
         ]
@@ -450,15 +479,15 @@ class WarehouseRenderer:
             # 色块
             pygame.draw.rect(
                 self.screen, color,
-                (legend_x + i * 150, legend_y, 16, 16)
+                (legend_x + i * 110, legend_y, 16, 16)
             )
             pygame.draw.rect(
                 self.screen, (150, 150, 150),
-                (legend_x + i * 150, legend_y, 16, 16), 1
+                (legend_x + i * 110, legend_y, 16, 16), 1
             )
             # 标签
             label_text = self.font_tiny.render(label, True, (80, 80, 80))
-            self.screen.blit(label_text, (legend_x + i * 150 + 22, legend_y + 1))
+            self.screen.blit(label_text, (legend_x + i * 110 + 22, legend_y + 1))
         
         # 操作提示
         hint_text = self.font_small.render(
@@ -510,7 +539,8 @@ class WarehouseRenderer:
             # 位置信息
             pos_str = f"({agv.position[0]},{agv.position[1]})"
             
-            agv_info = f"AGV{agv_id}:{status_label}{load_mark}{pos_str}"
+            bat_str = f" {agv.battery:.0f}%"
+            agv_info = f"AGV{agv_id}:{status_label}{load_mark}{pos_str}{bat_str}"
             info_color = (50, 50, 50)
             info_text = self.font_tiny.render(agv_info, True, info_color)
             self.screen.blit(info_text, (x + 16, y))
