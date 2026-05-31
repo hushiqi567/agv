@@ -108,6 +108,7 @@ class AGVController(BaseModule):
         self.agvs.clear()
         self.total_tasks_completed = 0
         self.total_steps_taken = 0
+        self.deadlock_detector.reset()
         from scheduler.task_allocator import AGV_INITIAL_POSITIONS, NUM_AGVS
         for i in range(NUM_AGVS):
             self.agvs[i] = AGVRuntimeState(
@@ -118,6 +119,7 @@ class AGVController(BaseModule):
         self.current_step += 1
         self._plan_paths()
         self._move_agvs()
+        self._check_deadlock_and_recover()
         self._check_task_completion()
         self._publish_state()
 
@@ -157,6 +159,52 @@ class AGVController(BaseModule):
                 agv.path = path
                 agv.path_index = 0
                 agv.waiting_steps = 0
+
+    # ============================================================
+    # 死锁检测与恢复: 每10步构建等待图，DFS判环并回退打破
+    # ============================================================
+    def _check_deadlock_and_recover(self):
+        """检测死锁并在检测到时恢复。"""
+        # 构建DeadlockDetector所需的agv_states字典
+        agv_states = {}
+        for agv_id, agv in self.agvs.items():
+            if agv.status in [AGVStatus.MOVING_TO_PICKUP,
+                              AGVStatus.MOVING_TO_DELIVERY]:
+                agv_states[agv_id] = {
+                    'position': agv.position,
+                    'goal_pos': agv.goal_pos,
+                    'path': agv.path,
+                    'path_index': agv.path_index,
+                    'is_loaded': agv.is_loaded,
+                }
+
+        occupied = set(a.position for a in self.agvs.values())
+
+        # 检测死锁
+        cycle = self.deadlock_detector.detect(
+            agv_states, occupied, self.current_step)
+        if cycle is None:
+            return
+
+        # 检测到死锁 → 执行恢复
+        recovery = self.deadlock_detector.recover(agv_states, cycle)
+        recovered_agv = None
+        for agv_id, new_pos in recovery.items():
+            if agv_id in self.agvs:
+                agv = self.agvs[agv_id]
+                # 验证新位置有效（在边界内且未被占用）
+                if (0 <= new_pos[0] < self.env.width
+                        and 0 <= new_pos[1] < self.env.height
+                        and new_pos not in occupied):
+                    agv.position = new_pos
+                    agv.waiting_steps = 0
+                    agv.path = []       # 清空路径，下一步_plan_paths会重规划
+                    agv.path_index = 0
+                    recovered_agv = agv_id
+
+        # 记录死锁事件
+        self.metrics.record_deadlock(
+            cycle, recovered_agv or -1, self.current_step)
 
     # ============================================================
     # AGV移动: 严格跟踪A*路径，受阻时短暂等待或RL绕行
