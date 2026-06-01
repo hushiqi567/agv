@@ -75,7 +75,7 @@ class AGVConfig:
         load_capacity: 最大载重，默认10.0
         sensor_range: 传感器探测范围（格），默认3
     """
-    num_agvs: int = 8
+    num_agvs: int = 3
     max_speed: float = 1.0
     battery_capacity: float = 100.0
     battery_consumption_per_step: float = 0.5

@@ -171,8 +171,8 @@ class WarehouseEnv(BaseModule):
             self.grid[y][right_col] = CELL_UNLOADING
             self.unloading_zones.append((right_col, y))
 
-        # 充电站 (4个，分布在内部区域，避开进货口/出货口列)
-        charging_positions = [(12, 12), (12, 37), (37, 12), (37, 37)]
+        # 充电站 (1个，中心偏左，避开卸货口列)
+        charging_positions = [(20, 25)]
         for cx, cy in charging_positions:
             self.grid[cy][cx] = CELL_CHARGING
             self.charging_stations.append((cx, cy))
