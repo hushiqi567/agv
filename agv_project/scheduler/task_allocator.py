@@ -269,10 +269,10 @@ class TaskAllocator(BaseModule):
         # 高优先级任务先分配
         pending_tasks.sort(key=lambda t: t.priority, reverse=True)
 
-        # 电池感知：只考虑电量≥30%的空闲AGV
+        # 收集所有空闲AGV(电池门槛由下面的能耗检查负责)
         idle_agvs = {}
         for agv_id, agv in self.agvs.items():
-            if agv.status == AGVStatus.IDLE and agv.battery >= 30.0:
+            if agv.status == AGVStatus.IDLE:
                 idle_agvs[agv_id] = agv
 
         if not idle_agvs:
