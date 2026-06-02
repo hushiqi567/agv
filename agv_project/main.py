@@ -418,13 +418,18 @@ def main():
         if args.steps:
             sim.max_steps = args.steps
 
-        # 加载预训练RL模型到控制器的DQNAgent
-        if args.load_model:
-            if os.path.exists(args.load_model):
-                sim.controller.dqn_agent.load_model(args.load_model)
-                print(f"已加载模型: {args.load_model}")
-            else:
-                print(f"模型文件不存在: {args.load_model}")
+        # 加载RL模型: 命令行指定 > 自动检测最佳可用模型
+        model_path = args.load_model
+        if not model_path:
+            for candidate in ["models/rl_multi_agv.pth", "models/rl_final.pth"]:
+                if os.path.exists(candidate):
+                    model_path = candidate
+                    break
+        if model_path and os.path.exists(model_path):
+            sim.controller.dqn_agent.load_model(model_path)
+            print(f"已加载模型: {model_path}")
+        elif model_path:
+            print(f"模型文件不存在: {model_path}")
 
         if args.cbs_primary:
             sim.controller.use_rl_primary = False
