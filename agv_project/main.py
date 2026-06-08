@@ -99,7 +99,7 @@ class Simulation:
             self.renderer = WarehouseRenderer(self.env, fps=self.render_fps)
             self.renderer.set_agv_controller(self.controller)
         
-        # 6. 设置模块间引用
+        # 7. 设置模块间引用
         self.task_allocator.set_controller(self.controller)
         
         self.logger.info("所有模块初始化完成")
@@ -149,11 +149,7 @@ class Simulation:
         """
         执行一步仿真
         
-        顺序：
-        1. 环境更新（障碍物移动）
-        2. 任务生成（泊松分布）
-        3. 任务分配（最近距离）
-        4. AGV移动（MAPF+RL）
+        顺序: 环境更新 → 任务生成与分配 → AGV移动(RL+CBS+A*)
         """
         self.current_step += 1
         
@@ -422,14 +418,19 @@ def main():
         model_path = args.load_model
         if not model_path:
             for candidate in ["models/rl_multi_agv.pth", "models/rl_final.pth"]:
-                if os.path.exists(candidate):
-                    model_path = candidate
+                abs_candidate = os.path.join(_project_root, candidate)
+                if os.path.exists(abs_candidate):
+                    model_path = abs_candidate
                     break
-        if model_path and os.path.exists(model_path):
-            sim.controller.dqn_agent.load_model(model_path)
-            print(f"已加载模型: {model_path}")
-        elif model_path:
-            print(f"模型文件不存在: {model_path}")
+        if model_path:
+            # 相对路径转绝对路径
+            if not os.path.isabs(model_path):
+                model_path = os.path.join(_project_root, model_path)
+            if os.path.exists(model_path):
+                sim.controller.dqn_agent.load_model(model_path)
+                print(f"已加载模型: {model_path}")
+            else:
+                print(f"模型文件不存在: {model_path}")
 
         if args.cbs_primary:
             sim.controller.use_rl_primary = False

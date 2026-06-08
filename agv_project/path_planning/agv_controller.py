@@ -1,5 +1,5 @@
 """
-AGV控制器 — 纯A*路径跟踪 + RL局部避撞
+AGV控制器 — RL主导路径规划 + CBS全局协调 + A*局部建议
 """
 import sys
 import os

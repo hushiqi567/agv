@@ -33,9 +33,7 @@ from interface.config import get_config
 from scheduler.od_flow import ODFlowManager
 
 
-# ==========================================
-# 常量定义
-# ==========================================
+# -- 常量定义 --
 
 # 从全局配置读取
 _config = get_config()
@@ -78,24 +76,13 @@ class TaskAllocator(BaseModule):
         """
         super().__init__("scheduler")
         
-        # 进货口和出货口
         self.loading_zones = loading_zones
         self.unloading_zones = unloading_zones
-        
-        # OD流程管理器
         self.od_flow = ODFlowManager(unloading_zones)
-        
-        # AGV控制器引用（由外部设置）
         self.controller = None
-        
-        # 泊松分布参数
         self.poisson_lambda = POISSON_LAMBDA
-        
-        # 随机数生成器
         self.rng = random.Random(42)
         self.np_rng = np.random.RandomState(42)
-        
-        # 仿真状态
         self.current_step = 0
         self.is_running = False
         
@@ -402,9 +389,7 @@ class TaskAllocator(BaseModule):
         }
 
 
-# ==========================================
-# 独立运行测试
-# ==========================================
+# -- 独立运行测试 --
 
 def run_test():
     """

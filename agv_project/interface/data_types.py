@@ -12,9 +12,7 @@ from typing import List, Tuple, Optional, Dict
 from enum import Enum
 
 
-# ==========================================
-# 枚举类型定义
-# ==========================================
+# -- 枚举类型定义 --
 
 class TaskStatus(Enum):
     """任务状态枚举"""
@@ -61,9 +59,7 @@ class Direction(Enum):
     STAY = (0, 0)              # 原地等待
 
 
-# ==========================================
-# 核心数据结构
-# ==========================================
+# -- 核心数据结构 --
 
 @dataclass
 class Task:
@@ -213,9 +209,7 @@ class SimulationConfig:
     seed: int = 42
 
 
-# ==========================================
-# 辅助函数
-# ==========================================
+# -- 辅助函数 --
 
 def manhattan_distance(pos1: Tuple[int, int], pos2: Tuple[int, int]) -> int:
     """

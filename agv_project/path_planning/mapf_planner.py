@@ -31,9 +31,7 @@ if _project_root not in sys.path:
 from interface.data_types import manhattan_distance, CellType
 
 
-# ==========================================
-# 数据结构
-# ==========================================
+# -- 数据结构 --
 
 @dataclass
 class Conflict:
@@ -76,9 +74,7 @@ class CBSNode:
         return self.cost < other.cost
 
 
-# ==========================================
-# A* 单AGV寻路
-# ==========================================
+# -- A* 单AGV寻路 --
 
 @dataclass
 class AStarNode:
@@ -220,9 +216,7 @@ def a_star_search(
     return None  # 无解
 
 
-# ==========================================
-# CBS 多AGV路径规划
-# ==========================================
+# -- CBS 多AGV路径规划 --
 
 class MAPFPlanner:
     """
@@ -440,9 +434,7 @@ class MAPFPlanner:
         )
 
 
-# ==========================================
-# 独立运行测试
-# ==========================================
+# -- 独立运行测试 --
 
 def run_test():
     """测试MAPF规划器"""

@@ -230,7 +230,7 @@ class DQNAgent:
                        arrived_pickup=False, arrived_delivery=False,
                        obstacle_collision=False, agv_collision=False,
                        deadlock=False, congestion_count=0,
-                       battery=100.0, waited=False, channel_shared=False):
+                       battery=100.0, waited=False):
         """分段奖励函数 — 温和的取值范围保证训练稳定"""
         if deadlock:
             return REWARD_DEADLOCK
