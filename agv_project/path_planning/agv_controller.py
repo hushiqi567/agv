@@ -166,7 +166,7 @@ class AGVController(BaseModule):
         # 调用MAPFPlanner的CBS规划
         try:
             agent_list = [(aid, starts[aid], goals[aid]) for aid in starts]
-            cbs_paths = self.mapf_planner.plan(agent_list)
+            cbs_paths = self.mapf_planner.solve(agent_list)
 
             for agv_id, path in cbs_paths.items():
                 agv = self.agvs[agv_id]
