@@ -3,7 +3,7 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
-*.pth
+# *.pth  # 改为允许模型文件上传
 logs/*.log
 logs/metrics/
 *.json
