@@ -1,7 +1,5 @@
 """
-============================================
 AGV仓库仿真系统 - 主入口
-============================================
 本文件整合所有模块，启动完整的AGV仓库仿真。
 
 仿真流程：
@@ -32,7 +30,6 @@ from scheduler.task_allocator import TaskAllocator
 from path_planning.mapf_planner import MAPFPlanner
 from path_planning.rl_collision_avoidance import RLCollisionAvoidance
 from path_planning.agv_controller import AGVController
-
 
 class Simulation:
     """
@@ -265,7 +262,6 @@ class Simulation:
             data=data
         ))
 
-
 def main():
     """主函数"""
     # 解析命令行参数
@@ -417,7 +413,7 @@ def main():
         # 加载RL模型: 命令行指定 > 自动检测最佳可用模型
         model_path = args.load_model
         if not model_path:
-            for candidate in ["models/rl_multi_agv.pth", "models/rl_final.pth"]:
+            for candidate in ["models/rl_final.pth", "models/rl_multi_agv.pth", "models/rl_final_v3.pth"]:
                 abs_candidate = os.path.join(_project_root, candidate)
                 if os.path.exists(abs_candidate):
                     model_path = abs_candidate
@@ -439,7 +435,6 @@ def main():
         sim.run()
     
     print("\n仿真结束，感谢使用！")
-
 
 if __name__ == "__main__":
     main()

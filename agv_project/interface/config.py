@@ -1,7 +1,5 @@
 """
-============================================
 全局配置管理模块
-============================================
 本模块负责管理整个项目的全局配置，包括：
 1. 仓库地图配置（尺寸、布局）
 2. AGV参数配置（数量、速度、电量等）
@@ -19,7 +17,6 @@ from typing import Any, Dict, Optional
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 
-
 # -- 仓库地图配置 --
 
 # 默认仓库地图 (10x10)
@@ -36,7 +33,6 @@ DEFAULT_WAREHOUSE_MAP = [
     [0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
     [3, 0, 0, 1, 0, 0, 1, 0, 0, 4],
 ]
-
 
 @dataclass
 class MapConfig:
@@ -56,7 +52,6 @@ class MapConfig:
     grid: list = field(default_factory=lambda: DEFAULT_WAREHOUSE_MAP)
     cell_size: int = 50
 
-
 @dataclass
 class AGVConfig:
     """
@@ -67,20 +62,19 @@ class AGVConfig:
     Attributes:
         num_agvs: AGV数量，默认4
         max_speed: 最大移动速度（格/时间步），默认1.0
-        battery_capacity: 电池容量，默认100.0
+        battery_capacity: 电池容量，默认200.0
         battery_consumption_per_step: 每步耗电量，默认0.5
         charge_rate: 充电速率（每时间步），默认5.0
         load_capacity: 最大载重，默认10.0
         sensor_range: 传感器探测范围（格），默认3
     """
-    num_agvs: int = 3
+    num_agvs: int = 5
     max_speed: float = 1.0
-    battery_capacity: float = 100.0
+    battery_capacity: float = 500.0
     battery_consumption_per_step: float = 0.5
-    charge_rate: float = 5.0
+    charge_rate: float = 20.0
     load_capacity: float = 10.0
     sensor_range: int = 3
-
 
 @dataclass
 class SimulationConfig:
@@ -110,7 +104,6 @@ class SimulationConfig:
     log_level: str = "INFO"
     save_log: bool = True
     log_dir: str = "logs"
-
 
 @dataclass
 class RLConfig:
@@ -162,7 +155,6 @@ class RLConfig:
     ppo_value_coef: float = 0.5
     ppo_epochs: int = 10
 
-
 @dataclass
 class RewardConfig:
     """
@@ -189,14 +181,12 @@ class RewardConfig:
     idle_penalty: float = -0.5
     conflict_wait_penalty: float = -2.0
 
-
 @dataclass
 class DeadlockConfig:
     """死锁检测配置"""
     detection_interval: int = 10
     max_wait_steps: int = 20
     recovery_steps: int = 3
-
 
 @dataclass
 class MetricsConfig:
@@ -205,7 +195,6 @@ class MetricsConfig:
     export_dir: str = "logs/metrics"
     export_csv: bool = True
     export_charts: bool = True
-
 
 # -- 全局配置管理器（单例模式） --
 
@@ -392,7 +381,6 @@ class ConfigManager:
                 print(f"  {key}: {value}")
         print("=" * 50)
 
-
 # -- 便捷函数：获取全局配置实例 --
 
 def get_config() -> ConfigManager:
@@ -410,7 +398,6 @@ def get_config() -> ConfigManager:
         1000
     """
     return ConfigManager()
-
 
 # -- 测试代码 --
 

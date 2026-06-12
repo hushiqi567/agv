@@ -22,7 +22,6 @@ from path_planning.rl.dqn_agent import DQNAgent
 from path_planning.deadlock_detector import DeadlockDetector
 from path_planning.metrics_collector import MetricsCollector
 
-
 @dataclass
 class AGVRuntimeState:
     agv_id: int
@@ -36,7 +35,6 @@ class AGVRuntimeState:
     goal_pos: Optional[Tuple[int, int]] = None
     sub_goal: Optional[Tuple[int, int]] = None  # CBS规划的中间子目标
     waiting_steps: int = 0
-
 
 class AGVController(BaseModule):
     """AGV控制器 — RL主导路径规划 + CBS全局协调 + A*局部建议"""
@@ -71,6 +69,11 @@ class AGVController(BaseModule):
         self.battery_consumption = cfg.agv.battery_consumption_per_step
         self.charge_rate = cfg.agv.charge_rate
         self.charging_stations = getattr(env, 'charging_stations', [])
+        # AGV专属充电桩: AGV_id -> (x, y)
+        self.agv_charger = {}
+        for i in range(cfg.agv.num_agvs):
+            if self.charging_stations:
+                self.agv_charger[i] = self.charging_stations[i % len(self.charging_stations)]
 
         self.logger.info("AGV控制器初始化完成")
 
@@ -228,12 +231,9 @@ class AGVController(BaseModule):
         consumption = self.battery_consumption * multiplier
         agv.battery = max(0.0, agv.battery - consumption)
 
-    def _find_nearest_charging_station(self, pos):
-        """找到距离pos最近的充电站"""
-        if not self.charging_stations:
-            return None
-        return min(self.charging_stations,
-                   key=lambda cs: manhattan_distance(pos, cs))
+    def _get_assigned_charger(self, agv_id):
+        """返回该AGV的专属充电站位置"""
+        return self.agv_charger.get(agv_id)
 
     def _manage_battery(self):
         """管理所有AGV的电量:充电恢复 / 低电告警并导航到充电站"""
@@ -260,7 +260,7 @@ class AGVController(BaseModule):
             if (agv.status == AGVStatus.IDLE
                     and agv.battery < IDLE_CHARGE_THRESHOLD
                     and agv.battery > LOW_THRESHOLD):
-                target = self._find_nearest_charging_station(agv.position)
+                target = self._get_assigned_charger(agv_id)
                 if target is not None:
                     agv.status = AGVStatus.MOVING_TO_CHARGE
                     agv.goal_pos = target
@@ -285,7 +285,7 @@ class AGVController(BaseModule):
                     agv.is_loaded = False
 
                 # 导航到最近充电站
-                target = self._find_nearest_charging_station(agv.position)
+                target = self._get_assigned_charger(agv_id)
                 if target is not None:
                     agv.status = AGVStatus.MOVING_TO_CHARGE
                     agv.goal_pos = target

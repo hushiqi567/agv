@@ -11,14 +11,12 @@ from path_planning.mapf_planner import MAPFPlanner
 from path_planning.rl_collision_avoidance import RLCollisionAvoidance
 from path_planning.agv_controller import AGVController
 
-
 CONFIGS = {
     "full":          {"rl_primary": True,  "curriculum": True,  "deadlock": True},
     "no_curriculum": {"rl_primary": True,  "curriculum": False, "deadlock": True},
     "no_avoidance":  {"rl_primary": False, "curriculum": True,  "deadlock": True},
     "rl_only":       {"rl_primary": True,  "curriculum": False, "deadlock": False},
 }
-
 
 def run_ablation(config_name, config, steps=200):
     env = WarehouseEnv()
@@ -46,7 +44,6 @@ def run_ablation(config_name, config, steps=200):
         'total_steps': stats['steps_taken'],
     }
 
-
 def run_experiment_2(steps=200, output_dir="logs/metrics"):
     os.makedirs(output_dir, exist_ok=True)
     results = []
@@ -63,7 +60,6 @@ def run_experiment_2(steps=200, output_dir="logs/metrics"):
     for r in results:
         print(f"  {r['config']}: tasks={r['tasks_completed']}")
     return results
-
 
 if __name__ == "__main__":
     run_experiment_2(steps=100)

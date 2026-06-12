@@ -1,7 +1,5 @@
 """
-============================================
 模块间通信接口模块
-============================================
 本模块定义了各模块之间的通信协议和接口规范。
 采用"发布-订阅"模式，实现模块间的松耦合通信。
 
@@ -20,7 +18,6 @@ from typing import Any, Callable, Dict, List, Optional
 from collections import defaultdict
 import logging
 from datetime import datetime
-
 
 # -- 消息类型定义 --
 
@@ -58,7 +55,6 @@ class MessageType(Enum):
     MAIN_SIMULATION_RESET = "main_simulation_reset"         # 仿真重置
     MAIN_CONFIG_UPDATED = "main_config_updated"             # 配置更新
 
-
 # -- 消息数据结构 --
 
 @dataclass
@@ -82,7 +78,6 @@ class Message:
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     priority: int = 5
     msg_id: str = field(default_factory=lambda: f"msg_{datetime.now().timestamp()}")
-
 
 # -- 消息总线（核心通信组件） --
 
@@ -264,7 +259,6 @@ class MessageBus:
                     print(f"  {i+1}. {cb.__name__}")
         print("=" * 50)
 
-
 # -- 模块基类（所有模块的父类） --
 
 class BaseModule:
@@ -363,7 +357,6 @@ class BaseModule:
         """
         self.logger.info(f"仿真重置: {message.data}")
 
-
 # -- 便捷函数：获取消息总线实例 --
 
 def get_message_bus() -> MessageBus:
@@ -380,7 +373,6 @@ def get_message_bus() -> MessageBus:
         >>> bus.subscribe(MessageType.ENV_STATE_UPDATE, my_callback)
     """
     return MessageBus()
-
 
 # -- 测试代码 --
 

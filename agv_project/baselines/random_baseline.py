@@ -3,7 +3,6 @@ import random
 
 ACTIONS = [(0, -1), (0, 1), (-1, 0), (1, 0), (0, 0)]
 
-
 class RandomBaseline:
     """随机策略对照组"""
     def __init__(self):

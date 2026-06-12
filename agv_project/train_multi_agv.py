@@ -18,13 +18,11 @@ from path_planning.agv_controller import AGVController
 from path_planning.rl.dqn_agent import DQNAgent, ACTIONS, ACTION_DELTAS
 from interface.data_types import AGVStatus
 
-
 def setup_logging():
     # 训练时关闭所有日志
     for name in logging.root.manager.loggerDict:
         logging.getLogger(name).setLevel(logging.CRITICAL)
     logging.basicConfig(level=logging.CRITICAL)
-
 
 def train_multi_agv(episodes=100, steps_per_ep=500, load_model=None,
                     save_model="models/rl_multi_agv.pth", lr=0.0003):
@@ -218,7 +216,6 @@ def train_multi_agv(episodes=100, steps_per_ep=500, load_model=None,
     print(f"Total tasks: {total_tasks}, Best: {best_tasks}, Collisions: {total_collisions}")
     print(f"Model saved: {save_model}")
     print(f"{'='*60}")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Multi-AGV RL Training")

@@ -4,7 +4,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-
 def plot_exp1_rl_vs_astar(csv_path, output_dir="logs/metrics"):
     import csv
     if not os.path.exists(csv_path):
@@ -37,7 +36,6 @@ def plot_exp1_rl_vs_astar(csv_path, output_dir="logs/metrics"):
     plt.close(fig)
     print(f"Saved: {path}")
 
-
 def plot_exp2_ablation(csv_path, output_dir="logs/metrics"):
     import csv
     if not os.path.exists(csv_path):
@@ -62,7 +60,6 @@ def plot_exp2_ablation(csv_path, output_dir="logs/metrics"):
     fig.savefig(path, dpi=100)
     plt.close(fig)
 
-
 def plot_exp3_scalability(csv_path, output_dir="logs/metrics"):
     import csv
     if not os.path.exists(csv_path):
@@ -86,7 +83,6 @@ def plot_exp3_scalability(csv_path, output_dir="logs/metrics"):
     path = os.path.join(output_dir, "exp3_scalability.png")
     fig.savefig(path, dpi=100)
     plt.close(fig)
-
 
 def plot_exp4_comparison(csv_path, output_dir="logs/metrics"):
     import csv
@@ -115,7 +111,6 @@ def plot_exp4_comparison(csv_path, output_dir="logs/metrics"):
     path = os.path.join(output_dir, "exp4_comparison.png")
     fig.savefig(path, dpi=100)
     plt.close(fig)
-
 
 if __name__ == "__main__":
     d = "logs/metrics"

@@ -11,7 +11,6 @@ from path_planning.mapf_planner import MAPFPlanner
 from path_planning.rl_collision_avoidance import RLCollisionAvoidance
 from path_planning.agv_controller import AGVController
 
-
 def run_experiment_3(agv_counts=None, steps=300, output_dir="logs/metrics"):
     if agv_counts is None:
         agv_counts = [2, 4, 6, 8]
@@ -56,7 +55,6 @@ def run_experiment_3(agv_counts=None, steps=300, output_dir="logs/metrics"):
     for r in results:
         print(f"  {r['num_agvs']} AGVs: {r['tasks_completed']} tasks")
     return results
-
 
 if __name__ == "__main__":
     run_experiment_3(steps=100)

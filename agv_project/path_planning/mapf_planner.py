@@ -1,7 +1,5 @@
 """
-============================================
 MAPF全局规划模块（CBS算法）
-============================================
 本模块实现了 Conflict-Based Search (CBS) 算法，
 为所有AGV规划无冲突的全局路径。
 
@@ -30,7 +28,6 @@ if _project_root not in sys.path:
 
 from interface.data_types import manhattan_distance, CellType
 
-
 # -- 数据结构 --
 
 @dataclass
@@ -53,7 +50,6 @@ class Conflict:
     pos2: Tuple[int, int]
     conflict_type: str = 'vertex'
 
-
 @dataclass
 class CBSNode:
     """
@@ -73,7 +69,6 @@ class CBSNode:
     def __lt__(self, other):
         return self.cost < other.cost
 
-
 # -- A* 单AGV寻路 --
 
 @dataclass
@@ -88,7 +83,6 @@ class AStarNode:
     
     def __lt__(self, other):
         return self.f < other.f
-
 
 def a_star_search(
     start: Tuple[int, int],
@@ -214,7 +208,6 @@ def a_star_search(
             heapq.heappush(open_set, (neighbor.f, id(neighbor), neighbor))
     
     return None  # 无解
-
 
 # -- CBS 多AGV路径规划 --
 
@@ -433,7 +426,6 @@ class MAPFPlanner:
             start, goal, self.grid, self.width, self.height
         )
 
-
 # -- 独立运行测试 --
 
 def run_test():
@@ -483,7 +475,6 @@ def run_test():
     print(f"\n冲突数量: {len(conflicts)}")
     
     print("\n测试完成！")
-
 
 if __name__ == "__main__":
     run_test()

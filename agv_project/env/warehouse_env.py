@@ -1,7 +1,5 @@
 """
-============================================
 仓库环境模块 - 核心逻辑
-============================================
 本模块实现了 50×50 的无人仓储环境，包含：
 1. 网格地图：最左列和最右列为装货口（红色），中间两列各6个交错卸货口（蓝色）
 2. 障碍物管理：10个随机移动的障碍物，每步随机移动
@@ -25,7 +23,6 @@ if _project_root not in sys.path:
 
 from interface.communication import BaseModule, MessageType, Message
 from interface.data_types import CellType
-
 
 # -- 常量定义 --
 
@@ -56,7 +53,6 @@ NUM_OBSTACLES = 10
 NUM_LOADING_ZONES = 20   # 最左列10个 + 最右列10个
 NUM_UNLOADING_ZONES = 12 # 中间两列各6个
 
-
 @dataclass
 class Obstacle:
     """
@@ -68,7 +64,6 @@ class Obstacle:
     """
     position: Tuple[int, int]
     id: int = 0
-
 
 class WarehouseEnv(BaseModule):
     """
@@ -106,7 +101,10 @@ class WarehouseEnv(BaseModule):
         # 充电站位置列表
         self.charging_stations: List[Tuple[int, int]] = []
 
-        # 障碍物管理
+        # 固定障碍物 (4个2x2)
+        self.fixed_obstacles: List[Tuple[int, int]] = []
+        
+        # 移动障碍物管理
         self.obstacles: List[Obstacle] = []
         self.next_obstacle_id = 0
         
@@ -158,9 +156,9 @@ class WarehouseEnv(BaseModule):
         left_col = self.width // 2 - 1   # x=24
         right_col = self.width // 2      # x=25
         
-        left_unloading_ys = [4, 12, 20, 28, 36, 44]
-        right_unloading_ys = [8, 16, 24, 32, 40, 48]
-        
+        left_unloading_ys = [10, 16, 28, 34, 46]
+        right_unloading_ys = [7, 19, 25, 37, 43, 49]
+
         for y in left_unloading_ys:
             self.grid[y][left_col] = CELL_UNLOADING
             self.unloading_zones.append((left_col, y))
@@ -169,11 +167,24 @@ class WarehouseEnv(BaseModule):
             self.grid[y][right_col] = CELL_UNLOADING
             self.unloading_zones.append((right_col, y))
 
-        # 充电站 (1个，中心偏左，避开卸货口列)
-        charging_positions = [(20, 25)]
+        # 充电站: 3个一对一配AGV, 平均分布在卸货口之间
+        charging_positions = [(24, 4), (25, 13), (24, 22), (25, 31), (24, 40)]
         for cx, cy in charging_positions:
             self.grid[cy][cx] = CELL_CHARGING
             self.charging_stations.append((cx, cy))
+
+        # 4个2x2固定障碍物, 平均分布在四角
+        fixed_obs_positions = [
+            (8, 8), (38, 8),   # 上方两个
+            (8, 38), (38, 38), # 下方两个
+        ]
+        for fx, fy in fixed_obs_positions:
+            for dx in range(2):
+                for dy in range(2):
+                    x, y = fx + dx, fy + dy
+                    if 0 <= x < self.width and 0 <= y < self.height:
+                        self.grid[y][x] = CELL_OBSTACLE
+                        self.fixed_obstacles.append((x, y))
 
         self.logger.info(
             f"地图构建完成: "
@@ -303,6 +314,7 @@ class WarehouseEnv(BaseModule):
         forbidden.update(self.loading_zones)
         forbidden.update(self.unloading_zones)
         forbidden.update(self.charging_stations)
+        forbidden.update(self.fixed_obstacles)
         return forbidden
 
     def _init_obstacles(self):
@@ -406,7 +418,6 @@ class WarehouseEnv(BaseModule):
             for o in self.obstacles
         ]
 
-
 # -- 独立运行测试 --
 
 def run_test():
@@ -452,7 +463,6 @@ def run_test():
     
     print(f"\n最终障碍物数量: {len(env.obstacles)}")
     print("测试完成！")
-
 
 if __name__ == "__main__":
     run_test()

@@ -1,7 +1,6 @@
 """CBS基线 — 封装MAPFPlanner为实验对照组"""
 from path_planning.mapf_planner import MAPFPlanner
 
-
 class CBSBaseline:
     """CBS对照组 — 纯传统搜索方法"""
     def __init__(self, grid, width, height):

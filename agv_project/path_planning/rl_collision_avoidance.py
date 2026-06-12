@@ -1,7 +1,5 @@
 """
-============================================
 RL实时避撞模块（DQN算法）
-============================================
 本模块实现了基于深度Q网络（DQN）的实时避撞算法，
 用于处理动态障碍物（其他AGV、移动障碍物）的避让。
 
@@ -46,7 +44,6 @@ try:
 except ImportError:
     HAS_TORCH = False
 
-
 # -- 常量定义 --
 
 # 动作映射
@@ -83,7 +80,6 @@ REWARD_CLOSER = 1.0               # 更接近目标
 REWARD_FURTHER = -1.0             # 远离目标
 REWARD_WAIT_PENALTY = -0.5        # 等待惩罚
 REWARD_IDLE_PENALTY = -0.2        # 空闲AGV每步惩罚
-
 
 # -- DQN网络定义 --
 
@@ -135,7 +131,6 @@ class DQNNetwork(nn.Module):
         x = F.relu(self.fc1(x))
         return self.fc2(x)
 
-
 class ReplayMemory:
     """经验回放池"""
     
@@ -152,7 +147,6 @@ class ReplayMemory:
     
     def __len__(self):
         return len(self.memory)
-
 
 # -- RL避撞控制器 --
 
@@ -724,13 +718,11 @@ class RLCollisionAvoidance:
             "is_training": self.is_training
         }
 
-
 # -- 辅助函数 --
 
 def manhattan_distance(pos1: Tuple[int, int], pos2: Tuple[int, int]) -> int:
     """计算曼哈顿距离"""
     return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
-
 
 # -- 独立运行测试 --
 
@@ -810,7 +802,6 @@ def run_test():
         print(f"  训练损失: {loss}")
     
     print("\n测试完成！")
-
 
 if __name__ == "__main__":
     run_test()

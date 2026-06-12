@@ -11,9 +11,7 @@ from path_planning.mapf_planner import MAPFPlanner
 from path_planning.rl_collision_avoidance import RLCollisionAvoidance
 from path_planning.agv_controller import AGVController
 
-
 POLICIES = ["rl", "cbs", "random"]
-
 
 def run_experiment_4(policies=None, steps=200, output_dir="logs/metrics"):
     if policies is None:
@@ -65,7 +63,6 @@ def run_experiment_4(policies=None, steps=200, output_dir="logs/metrics"):
     for r in results:
         print(f"  {r['policy']}: tasks={r['tasks_completed']}, deadlocks={r['deadlocks']}")
     return results
-
 
 if __name__ == "__main__":
     run_experiment_4(steps=100)

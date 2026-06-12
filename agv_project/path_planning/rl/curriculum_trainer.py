@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from path_planning.rl.ppo_agent import PPOAgent
 from path_planning.rl.dqn_agent import DQNAgent, ACTIONS, ACTION_DELTAS
 
-
 @dataclass
 class CurriculumStage:
     """课程阶段配置"""
@@ -20,13 +19,11 @@ class CurriculumStage:
     num_scenarios: int = 100
     success_threshold: float = 0.8
 
-
 STAGES = [
     CurriculumStage(1, 10, (3, 5), (0, 0), 1, 200, 100, 0.8),
     CurriculumStage(2, 30, (5, 8), (2, 3), 2, 500, 100, 0.8),
     CurriculumStage(3, 50, (10, 10), (10, 10), 4, 1000, 100, 0.6),
 ]
-
 
 class CurriculumTrainer:
     """课程学习训练器 — 管理三阶段渐进训练"""

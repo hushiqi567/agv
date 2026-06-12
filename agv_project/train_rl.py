@@ -13,13 +13,11 @@ if _project_root not in sys.path:
 from path_planning.rl.dqn_agent import DQNAgent, ACTIONS, ACTION_DELTAS
 from path_planning.rl.curriculum_trainer import CurriculumTrainer, CurriculumStage
 
-
 def setup_logging():
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
         datefmt='%H:%M:%S')
-
 
 STAGES = [
     CurriculumStage(
@@ -38,7 +36,6 @@ STAGES = [
         num_agvs=1, max_steps=600, num_scenarios=200,
         success_threshold=0.60),
 ]
-
 
 def run_curriculum_training(agent, stages, model_dir="models"):
     """运行课程学习训练并返回结果"""
@@ -79,7 +76,6 @@ def run_curriculum_training(agent, stages, model_dir="models"):
     agent.save_model(final_path)
 
     return all_results
-
 
 def evaluate_agent(agent, map_size=50, num_trials=50, max_steps=500):
     """评估训练好的agent"""
@@ -135,7 +131,6 @@ def evaluate_agent(agent, map_size=50, num_trials=50, max_steps=500):
     avg_path = np.mean(path_lengths) if path_lengths else -1
     opt_path = map_size  # approximate optimal
     return success_rate, avg_path, opt_path
-
 
 def main():
     parser = argparse.ArgumentParser(description="AGV RL Training")
@@ -208,7 +203,6 @@ def main():
         print("建议: 增加训练场景数或调整奖励函数")
 
     print("\nTraining complete!")
-
 
 if __name__ == "__main__":
     main()

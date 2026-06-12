@@ -5,7 +5,6 @@ from typing import Dict
 
 from path_planning.rl.dqn_agent import DQNAgent, ACTIONS, ACTION_DELTAS
 
-
 class MARLTrainer:
     """
     多智能体训练器。

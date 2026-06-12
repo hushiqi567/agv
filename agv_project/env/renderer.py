@@ -1,7 +1,5 @@
 """
-============================================
 仓库环境 - Pygame 可视化渲染器
-============================================
 本模块使用 Pygame 实现 50×50 仓库网格的可视化，
 展示装货口（红色）、卸货口（蓝色）、障碍物（黑色）、充电站（金色）、AGV（彩色）的实时状态。
 
@@ -29,7 +27,6 @@ from env.warehouse_env import (
 )
 from interface.data_types import AGVStatus
 
-
 # -- 渲染配置 --
 
 # 窗口尺寸（像素）
@@ -53,7 +50,7 @@ FPS = 30
 # 信息栏高度
 INFO_BAR_HEIGHT = 130
 
-# AGV颜色（8台AGV各不同颜色，更鲜艳）
+# AGV颜色
 AGV_COLORS = [
     (46, 204, 113),   # 绿色
     (52, 152, 219),   # 蓝色
@@ -86,7 +83,6 @@ AGV_STATUS_LABELS = {
     "CHARGING": "充电",
     "MOVING_TO_CHARGE": "去充电",
 }
-
 
 class WarehouseRenderer:
     """
@@ -579,7 +575,6 @@ class WarehouseRenderer:
         pygame.quit()
         self.logger.info("渲染器已关闭")
 
-
 # -- 独立运行测试 --
 
 def run_renderer_demo():
@@ -649,7 +644,6 @@ def run_renderer_demo():
     # 关闭渲染器
     renderer.close()
     print(f"\n演示结束，共运行 {step_count} 步")
-
 
 if __name__ == "__main__":
     run_renderer_demo()

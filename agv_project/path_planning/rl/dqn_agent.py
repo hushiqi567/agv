@@ -34,7 +34,6 @@ REWARD_DEADLOCK = -5.0
 REWARD_CONGESTION = -1.0
 REWARD_BATTERY_LOW = -2.0  # 电量耗尽惩罚
 
-
 class HybridDQN(nn.Module):
     """混合输入 DQN: 卷积处理局部网格 + 全连接处理全局特征"""
 
@@ -78,7 +77,6 @@ class HybridDQN(nn.Module):
         h = self.dropout(h)
         return self.fc_out(h)
 
-
 class ReplayMemory:
     """经验回放池 — 支持优先级采样标记"""
 
@@ -101,7 +99,6 @@ class ReplayMemory:
 
     def __len__(self):
         return len(self.memory)
-
 
 class DQNAgent:
     """升级版 Double DQN Agent"""

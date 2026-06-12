@@ -1,7 +1,5 @@
 """
-============================================
 OD流程管理模块
-============================================
 本模块管理任务的OD（Origin-Destination）流程，包括：
 1. 任务池管理：维护所有任务的完整生命周期
 2. 出货口占用管理：跟踪每个出货口的占用状态
@@ -25,7 +23,6 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from interface.data_types import Task, TaskStatus
-
 
 class ODFlowManager:
     """

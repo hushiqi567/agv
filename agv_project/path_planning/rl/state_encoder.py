@@ -3,7 +3,6 @@ import numpy as np
 import math
 from typing import List, Tuple, Optional
 
-
 class StateEncoder:
     """
     将环境信息编码为 RL 可用的状态表示。
@@ -113,10 +112,8 @@ class StateEncoder:
 
         return local, global_vec
 
-
 def manhattan_distance(a: Tuple[int, int], b: Tuple[int, int]) -> int:
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
-
 
 def encode_state(agv_pos, goal_pos, grid, obstacles, other_agvs,
                  battery=100.0, is_loaded=False, priority=1,

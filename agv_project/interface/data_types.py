@@ -1,7 +1,5 @@
 """
-============================================
 数据结构和类型定义模块
-============================================
 本模块定义了整个项目中所有模块之间共享的数据结构，
 包括任务、AGV状态、地图信息等。
 使用 dataclass 确保数据结构的一致性和类型安全。
@@ -10,7 +8,6 @@
 from dataclasses import dataclass, field
 from typing import List, Tuple, Optional, Dict
 from enum import Enum
-
 
 # -- 枚举类型定义 --
 
@@ -25,7 +22,6 @@ class TaskStatus(Enum):
     COMPLETED = "completed"    # 已完成
     FAILED = "failed"          # 失败
 
-
 class AGVStatus(Enum):
     """AGV状态枚举"""
     IDLE = "idle"              # 空闲等待
@@ -39,7 +35,6 @@ class AGVStatus(Enum):
     BLOCKED = "blocked"        # 被阻塞（等待其他AGV）
     ERROR = "error"            # 故障状态
 
-
 class CellType(Enum):
     """地图单元格类型枚举"""
     EMPTY = 0                  # 空地（可通行）
@@ -49,7 +44,6 @@ class CellType(Enum):
     CHARGING_STATION = 4       # 充电站
     AGV = 5                    # AGV占用
 
-
 class Direction(Enum):
     """移动方向枚举"""
     UP = (0, -1)               # 上
@@ -57,7 +51,6 @@ class Direction(Enum):
     LEFT = (-1, 0)             # 左
     RIGHT = (1, 0)             # 右
     STAY = (0, 0)              # 原地等待
-
 
 # -- 核心数据结构 --
 
@@ -89,7 +82,6 @@ class Task:
     deadline: Optional[int] = None
     cargo_weight: float = 1.0
 
-
 @dataclass
 class AGVState:
     """
@@ -118,7 +110,6 @@ class AGVState:
     planned_path: List[Tuple[int, int]] = field(default_factory=list)
     speed: float = 1.0
 
-
 @dataclass
 class MapConfig:
     """
@@ -143,7 +134,6 @@ class MapConfig:
     charging_stations: List[Tuple[int, int]] = field(default_factory=list)
     obstacle_positions: List[Tuple[int, int]] = field(default_factory=list)
 
-
 @dataclass
 class ScheduleResult:
     """
@@ -161,7 +151,6 @@ class ScheduleResult:
     agv_routes: Dict[int, List[Tuple[Tuple[int, int], Tuple[int, int]]]]
     estimated_times: Dict[int, int]
     schedule_metrics: Dict[str, float] = field(default_factory=dict)
-
 
 @dataclass
 class PathPlanResult:
@@ -182,7 +171,6 @@ class PathPlanResult:
     total_steps: int = 0
     computation_time: float = 0.0
     path_metrics: Dict[str, float] = field(default_factory=dict)
-
 
 @dataclass
 class SimulationConfig:
@@ -208,7 +196,6 @@ class SimulationConfig:
     log_level: str = "INFO"
     seed: int = 42
 
-
 # -- 辅助函数 --
 
 def manhattan_distance(pos1: Tuple[int, int], pos2: Tuple[int, int]) -> int:
@@ -228,7 +215,6 @@ def manhattan_distance(pos1: Tuple[int, int], pos2: Tuple[int, int]) -> int:
     """
     return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
 
-
 def is_adjacent(pos1: Tuple[int, int], pos2: Tuple[int, int]) -> bool:
     """
     判断两个位置是否相邻（四连通）
@@ -241,7 +227,6 @@ def is_adjacent(pos1: Tuple[int, int], pos2: Tuple[int, int]) -> bool:
         是否相邻
     """
     return manhattan_distance(pos1, pos2) == 1
-
 
 def get_direction(from_pos: Tuple[int, int], to_pos: Tuple[int, int]) -> Direction:
     """

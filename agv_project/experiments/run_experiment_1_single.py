@@ -8,7 +8,6 @@ import random, time, csv
 from path_planning.rl.dqn_agent import DQNAgent, ACTIONS, ACTION_DELTAS
 from path_planning.mapf_planner import a_star_search
 
-
 def run_experiment_1(num_trials=50, map_size=30, max_steps=500,
                      model_path=None, output_dir="logs/metrics"):
     """单AGV RL vs A* 对比实验"""
@@ -79,7 +78,6 @@ def run_experiment_1(num_trials=50, map_size=30, max_steps=500,
     avg_ratio = sum(ratios)/len(ratios) if ratios else -1
     print(f"Experiment 1: RL success={successes}/{num_trials} ({successes/num_trials:.1%}), avg ratio={avg_ratio:.3f}")
     return results
-
 
 if __name__ == "__main__":
     run_experiment_1(num_trials=10)

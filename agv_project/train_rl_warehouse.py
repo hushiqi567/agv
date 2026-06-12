@@ -18,13 +18,11 @@ from path_planning.rl_collision_avoidance import RLCollisionAvoidance
 from path_planning.agv_controller import AGVController
 from path_planning.rl.dqn_agent import DQNAgent
 
-
 def setup_logging():
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s [%(levelname)s] %(message)s',
         datefmt='%H:%M:%S')
-
 
 def run_training_episode(env, task_alloc, mapf, rl_avoid, controller,
                          max_steps=500):
@@ -49,7 +47,6 @@ def run_training_episode(env, task_alloc, mapf, rl_avoid, controller,
         'avg_loss': (np.mean(controller.dqn_agent.loss_history[-100:])
                      if controller.dqn_agent.loss_history else 0),
     }
-
 
 def main():
     parser = argparse.ArgumentParser(description="RL训练 - 仓库仿真环境")
@@ -129,7 +126,6 @@ def main():
     print(f"最大任务/回合: {max(all_tasks)}")
     print(f"最终ε: {results[-1]['epsilon']:.4f}")
     print(f"最佳模型: {args.save_model} ({best_tasks} tasks)")
-
 
 if __name__ == "__main__":
     main()

@@ -17,7 +17,6 @@ ACTION_DELTAS = {
 }
 NUM_ACTIONS = len(ACTIONS)
 
-
 class PPONetwork(nn.Module):
     def __init__(self, grid_size=15, num_channels=5, global_dim=4,
                  num_actions=5):
@@ -53,7 +52,6 @@ class PPONetwork(nn.Module):
         g = F.relu(self.fc_global(global_vec))
         h = F.relu(self.fc_shared(torch.cat([x, g], dim=1)))
         return self.actor(h), self.critic(h)
-
 
 class PPOAgent:
     """PPO Agent — 存储 old_log_prob 在动作选择时，修复 ratio 始终为1的bug"""

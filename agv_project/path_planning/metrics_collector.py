@@ -13,7 +13,6 @@ try:
 except ImportError:
     HAS_MPL = False
 
-
 class MetricsCollector:
     """
     指标采集器。

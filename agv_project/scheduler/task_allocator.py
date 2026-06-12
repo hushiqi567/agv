@@ -1,7 +1,5 @@
 """
-============================================
 任务分配算法模块
-============================================
 本模块实现了调度方案的核心逻辑，包括：
 1. 泊松分布生成任务：每步按 Poisson(λ) 生成新货物
 2. 出货口分配：从空闲出货口中等概率随机选择
@@ -32,7 +30,6 @@ from interface.data_types import manhattan_distance
 from interface.config import get_config
 from scheduler.od_flow import ODFlowManager
 
-
 # -- 常量定义 --
 
 # 从全局配置读取
@@ -46,7 +43,6 @@ _default_positions = [
     (47, 2), (47, 5), (47, 8), (44, 3),
 ]
 AGV_INITIAL_POSITIONS = getattr(_config.agv, 'initial_positions', None) or _default_positions
-
 
 class TaskAllocator(BaseModule):
     """
@@ -388,7 +384,6 @@ class TaskAllocator(BaseModule):
             "poisson_lambda": self.poisson_lambda
         }
 
-
 # -- 独立运行测试 --
 
 def run_test():
@@ -457,7 +452,6 @@ def run_test():
     print(f"  空闲出货口: {stats['tasks']['available_unloading_zones']}")
     
     print("\n测试完成！")
-
 
 if __name__ == "__main__":
     run_test()

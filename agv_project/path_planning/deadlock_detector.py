@@ -4,7 +4,6 @@ import random
 from typing import List, Dict, Tuple, Set, Optional
 from collections import defaultdict
 
-
 class DeadlockDetector:
     """
     死锁检测器。
